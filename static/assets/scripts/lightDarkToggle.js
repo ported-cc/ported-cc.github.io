@@ -13,6 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTheme(themeSelect.value);
     });
 
-    const savedTheme = localStorage.getItem('theme') || 'vintage';
+    const savedTheme = localStorage.getItem('theme') || 'classic';
     setTheme(savedTheme);
 });
