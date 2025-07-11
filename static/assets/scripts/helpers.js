@@ -631,7 +631,8 @@ async function enforceDonationLockout() {
         const currentDomain = window.location.hostname;
 
         // If current host is not in allowedHosts, show complete lockout and disable access
-        if (!allowedHosts.includes(currentDomain)) {
+        if (!allowedHosts.includes(currentDomain) && !currentDomain.includes("localhost")) {
+            console.log("enforce ",currentDomain)
             document.body.innerHTML = `
                 <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#111;color:#fff;font-family:sans-serif;text-align:center;">
                     <div>

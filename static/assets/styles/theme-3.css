@@ -27,9 +27,6 @@ body.ocean {
     transform: scale(1.05);
 }
 
-.ocean .card.grid .card-content {
-    color: #003049;
-}
 
 .ocean #searchBox {
     background-color: #ffffff;

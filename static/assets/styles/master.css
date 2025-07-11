@@ -170,7 +170,10 @@ input[type="text"].cc {
   justify-content: center;
   padding: 15px;
 }
+.card-content, .card-content h2.card-title, .card-content p.card-description {
+    color: white !important;
 
+}
 .card{
   cursor: pointer;
 }

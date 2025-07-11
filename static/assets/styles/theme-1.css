@@ -29,9 +29,7 @@ body.future {
     box-shadow: 0 0 25px rgba(0, 255, 204, 0.4);
 }
 
-.future .card.grid .card-content {
-    color: #e0e0e0;
-}
+
 
 .future #searchBox {
     background-color: #1a1a1a;
