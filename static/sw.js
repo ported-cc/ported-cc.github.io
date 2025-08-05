@@ -304,7 +304,7 @@ self.addEventListener('fetch', event => {
             event.respondWith(cacheFirstStrategy(request));
         }
         // For HTML and JSON files, use network-first to get latest versions
-        else if (request.url.endsWith('.html') || request.url.endsWith('.json') || request.url.endsWith('.txt')) {
+        else if (request.url.endsWith('.html') || request.url.endsWith('.json') || request.url.endsWith('.txt') || request.url.endsWith('.js')) {
             event.respondWith(networkFirstStrategy(request));
         }
         // For everything else cacheable, use time-aware cache

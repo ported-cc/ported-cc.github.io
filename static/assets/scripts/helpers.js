@@ -639,11 +639,51 @@ async function enforceDonationLockout() {
                         <h1 style="font-size:2.5em;margin-bottom:0.5em;">CCPorted Is Down</h1>
                         <p style="font-size:1.2em;">CCPorted has been shut down. Check back next school year!!<br>
                         In the meantime, <a href ="https://discord.gg/GDEFRBTT3Z">join our discord</a> to hang out.</p>
+                        <p>CCPorted is coming back soon!</p>
+                        <p>Please add your email to the waitlist to be the first to know when we are back online!</p>
+                        <p><input type="email" placeholder="Enter your email" id="waitlist-email" style="padding:10px;width:300px;margin-top:10px;"></p>
+                        <button id="waitlist-submit" style="padding:10px 20px;margin-top:10px;">Join Waitlist</button>
+                        <p id="waitlist-message" style="margin-top:10px;"></p>
+
                     </div>
                 </div>
             `;
             // Disable all interaction
             // document.body.style.pointerEvents = "none";
+            async function handler() {
+                const emailInput = document.getElementById("waitlist-email");
+                const email = emailInput.value.trim();
+                if (!email) {
+                    document.getElementById("waitlist-message").textContent = "Please enter a valid email address.";
+                    return;
+                }
+
+                document.getElementById("waitlist-message").textContent = "Thank you for joining the waitlist!";
+                const url = "https://dahljrdecyiwfjgklnvz.supabase.co/rest/v1/email_waitlist";
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhaGxqcmRlY3lpd2ZqZ2tsbnZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjgyNjE3NzMsImV4cCI6MjA0MzgzNzc3M30.8-YlXqSXsYoPTaDlHMpTdqLxfvm89-8zk2HG2MCABRI",
+                        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhaGxqcmRlY3lpd2ZqZ2tsbnZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjgyNjE3NzMsImV4cCI6MjA0MzgzNzc3M30.8-YlXqSXsYoPTaDlHMpTdqLxfvm89-8zk2HG2MCABRI"
+                    },
+                    body: JSON.stringify({ email: email })
+                });
+                if (!response.ok) {
+                    document.getElementById("waitlist-message").textContent = "Failed to join waitlist. Please try again later.";
+                    return;
+                }
+                document.getElementById("waitlist-email").disabled = true;
+                document.getElementById("waitlist-submit").disabled = true;
+                document.getElementById("waitlist-message").textContent = "Thank you for joining the waitlist! We'll notify you when we're back online.";
+            }
+            document.getElementById("waitlist-submit").addEventListener("click", handler);
+            document.getElementById("waitlist-email").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    handler();
+                }
+            });
             document.body.style.userSelect = "none";
             window.locked = true;
             return;
