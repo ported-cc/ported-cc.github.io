@@ -641,6 +641,7 @@ async function enforceDonationLockout() {
                         In the meantime, <a href ="https://discord.gg/GDEFRBTT3Z">join our discord</a> to hang out.</p>
                         <p>CCPorted is coming back soon!</p>
                         <p>Please add your email to the waitlist to be the first to know when we are back online!</p>
+                        <p>Please use your home email, if you have one. Otherwise your organization might not let the email through.</p>
                         <p><input type="email" placeholder="Enter your email" id="waitlist-email" style="padding:10px;width:300px;margin-top:10px;"></p>
                         <button id="waitlist-submit" style="padding:10px 20px;margin-top:10px;">Join Waitlist</button>
                         <p id="waitlist-message" style="margin-top:10px;"></p>
