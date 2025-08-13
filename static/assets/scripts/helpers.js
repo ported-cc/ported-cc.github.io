@@ -671,7 +671,7 @@ async function enforceDonationLockout() {
                     body: JSON.stringify({ email: email })
                 });
                 if (!response.ok) {
-                    document.getElementById("waitlist-message").textContent = "Failed to join waitlist. Please try again later.";
+                    document.getElementById("waitlist-message").textContent = "Failed to join waitlist. Please try again later. Or email me directly (sojscoder@gmail.com)";
                     return;
                 }
                 document.getElementById("waitlist-email").disabled = true;
