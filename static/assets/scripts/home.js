@@ -509,7 +509,7 @@ try {
         const uploaded = game.uploadedTimestamp;
         const updated = game.updatedTimestamp;
         const now = Date.now();
-        const threshold = 1000 * 60 * 60 * 24 * 2; // 2 days
+        const threshold = 1000 * 60 * 60 * 24 * 7; // 7 days
         if (uploaded && updated) {
             if (now - uploaded < threshold) {
                 card.classList.add("new");
