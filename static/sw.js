@@ -52,6 +52,24 @@ self.addEventListener('activate', event => {
     );
 });
 
+// Helper function to identify large game files
+function isLargeGameFile(url) {
+    // Add patterns for your large game files
+    const gameFilePatterns = [
+        /\.data$/,          // Unity WebGL data files
+        /\.wasm$/,          // WebAssembly files
+        /\.bundle$/,        // Asset bundles
+        /\.unity3d$/,       // Unity asset files
+        /\.pak$/,           // Package files
+        /\.bin$/,           // Binary files
+        // Add your specific large file extensions here
+    ];
+    
+    return gameFilePatterns.some(pattern => pattern.test(url.pathname)) ||
+           url.pathname.includes('assets/') ||
+           url.pathname.includes('gamedata/');
+}
+
 // Helper function to determine if a request should be cached
 function isCacheableRequest(request) {
     const url = new URL(request.url);
@@ -84,7 +102,9 @@ function isCacheableRequest(request) {
         '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
         '.woff', '.woff2', '.ttf', '.otf',
         '.mp3', '.ogg', '.wav',
-        '.mp4', '.webm'
+        '.mp4', '.webm',
+        // Game file extensions
+        '.data', '.wasm', '.bundle', '.unity3d', '.pak', '.bin'
     ];
 
     if (extensions.some(ext => url.pathname.endsWith(ext))) {
@@ -92,6 +112,15 @@ function isCacheableRequest(request) {
     }
 
     return false;
+}
+
+// Helper function to check if response is valid for caching
+function isValidResponse(response) {
+    return response && 
+           response.ok && 
+           response.status >= 200 && 
+           response.status < 300 &&
+           response.status !== 209; // Explicitly exclude 209 responses
 }
 
 // Network-first strategy with fallback to cache
@@ -109,15 +138,25 @@ async function networkFirstStrategy(request) {
         // Try network first
         const networkResponse = await fetch(request, fetchOptions);
 
-        // If successful, clone and cache
-        if (networkResponse.ok) {
+        // If successful and valid for caching, clone and cache
+        if (isValidResponse(networkResponse)) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
             return networkResponse;
         }
 
-        // If network fails with an error status, try cache
-        throw new Error('Network response was not ok');
+        // If network response is not valid for caching, try cache
+        if (networkResponse.status === 209) {
+            console.log('Received 209 response, falling back to cache for:', request.url);
+        }
+        
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+
+        // Return the network response even if not cacheable
+        return networkResponse;
     } catch (error) {
         // Fall back to cache
         const cachedResponse = await caches.match(request);
@@ -154,8 +193,8 @@ async function cacheFirstStrategy(request) {
 
         const networkResponse = await fetch(request, fetchOptions);
 
-        // Cache the network response for future
-        if (networkResponse.ok) {
+        // Cache the network response for future if it's valid
+        if (isValidResponse(networkResponse)) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
         }
@@ -181,7 +220,7 @@ async function staleWhileRevalidateStrategy(request) {
     }
 
     const fetchPromise = fetch(request, fetchOptions).then(networkResponse => {
-        if (networkResponse.ok) {
+        if (isValidResponse(networkResponse)) {
             const cache = caches.open(CACHE_NAME).then(cache => {
                 cache.put(request, networkResponse.clone());
                 return networkResponse;
@@ -207,7 +246,8 @@ async function timeAwareCacheFirstStrategy(request) {
     if (cachedResponse && !isStale) {
         return cachedResponse;
     }
-    console.log(request.url, isStale)
+    
+    console.log('Cache miss or stale for:', request.url, { isStale, hasCached: !!cachedResponse });
     
     // Otherwise, get from network (either no cache or stale cache)
     try {
@@ -219,17 +259,20 @@ async function timeAwareCacheFirstStrategy(request) {
 
         const networkResponse = await fetch(request, fetchOptions);
         
-        // Cache the network response for future
-        if (networkResponse.ok) {
+        // Cache the network response for future if it's valid
+        if (isValidResponse(networkResponse)) {
             const cache = await caches.open(CACHE_NAME);
             await cache.put(request, networkResponse.clone());
             await updateCacheTimestamp(request.url);
+        } else if (networkResponse.status === 209) {
+            console.log('Received 209 response, not caching:', request.url);
         }
         
         return networkResponse;
     } catch (error) {
         // If network fails and we have a cached version (even if stale), return it
         if (cachedResponse) {
+            console.log('Network failed, returning stale cache for:', request.url);
             return cachedResponse;
         }
         
@@ -249,35 +292,49 @@ async function saveMetadataStore(metadata) {
 
 // Helper function to update timestamp for a cached file
 async function updateCacheTimestamp(url) {
-    const metadata = await getMetadataStore();
-    metadata[url] = Date.now();
-    await saveMetadataStore(metadata);
+    try {
+        const metadata = await getMetadataStore();
+        metadata[url] = Date.now();
+        await saveMetadataStore(metadata);
+    } catch (error) {
+        console.error('Failed to update cache timestamp:', error);
+    }
 }
 
 async function isFileStale(url) {
-    const metadata = await getMetadataStore();
-    const timestamp = metadata[url];
-    
-    if (!timestamp) {
-        console.log("No timestamp for", url);
-        return true; // No timestamp means we should revalidate
+    try {
+        const metadata = await getMetadataStore();
+        const timestamp = metadata[url];
+        
+        if (!timestamp) {
+            console.log("No timestamp for", url);
+            return true; // No timestamp means we should revalidate
+        }
+        
+        const now = Date.now();
+        const age = now - timestamp;
+        const maxAgeMs = MAX_AGE_DAYS * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+        return age > maxAgeMs;
+    } catch (error) {
+        console.error('Error checking if file is stale:', error);
+        return true; // Assume stale on error
     }
-    
-    const now = Date.now();
-    const age = now - timestamp;
-    const maxAgeMs = MAX_AGE_DAYS * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-    return age > maxAgeMs;
 }
 
 // Helper function to get the cache metadata store
 async function getMetadataStore() {
-    const cache = await caches.open(CACHE_NAME);
-    const metadataResponse = await cache.match(CACHE_METADATA_KEY);
-    
-    if (metadataResponse) {
-        return metadataResponse.json();
-    } else {
-        // Initialize with empty metadata if none exists
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        const metadataResponse = await cache.match(CACHE_METADATA_KEY);
+        
+        if (metadataResponse) {
+            return await metadataResponse.json();
+        } else {
+            // Initialize with empty metadata if none exists
+            return {};
+        }
+    } catch (error) {
+        console.error('Error getting metadata store:', error);
         return {};
     }
 }
@@ -299,11 +356,12 @@ self.addEventListener('fetch', event => {
         if (isImage && isExternalDomain) {
             event.respondWith(timeAwareCacheFirstStrategy(request));
         }
-        // For game assets, use cache-first
-        else if (request.url.includes('game_')) {
+        // For game assets, use cache-first (these are your large files)
+        else if (request.url.includes('game_') || isLargeGameFile(url)) {
+            console.log('Service worker caching game asset:', request.url);
             event.respondWith(cacheFirstStrategy(request));
         }
-        // For HTML and JSON files, use network-first to get latest versions
+        // For HTML, JSON, TXT and JS files, use network-first to get latest versions
         else if (request.url.endsWith('.html') || request.url.endsWith('.json') || request.url.endsWith('.txt') || request.url.endsWith('.js')) {
             event.respondWith(networkFirstStrategy(request));
         }
@@ -321,6 +379,16 @@ self.addEventListener('message', event => {
     if (event.data && event.data.action === 'CLEAR_CACHE') {
         caches.delete(CACHE_NAME).then(() => {
             event.ports[0].postMessage({ status: 'Cache cleared' });
+        });
+    }
+    
+    // Handle force refresh for specific URLs
+    if (event.data && event.data.action === 'FORCE_REFRESH') {
+        const url = event.data.url;
+        caches.open(CACHE_NAME).then(cache => {
+            cache.delete(url).then(() => {
+                event.ports[0].postMessage({ status: `Cache cleared for ${url}` });
+            });
         });
     }
 });
