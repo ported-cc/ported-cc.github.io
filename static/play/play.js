@@ -56,6 +56,8 @@
                 content: window.ccPorted.getUserTokens()
             });
         }
+
+        iframe.focus();
     });
     // Set up secure message handling from iframes
     window.addEventListener("message", async (event) => {
