@@ -393,6 +393,27 @@
         }
     }
 
+    @media (max-width: 480px) {
+        .card-wrapper {
+            margin: 8px 0;
+        }
+        .card {
+            height: 220px;
+        }
+        .card-title {
+            font-size: 1.1rem;
+        }
+        .card-description {
+            font-size: 0.75rem;
+            line-clamp: 2;
+            -webkit-line-clamp: 2;
+        }
+        .tag {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+        }
+    }
+
     @media (prefers-reduced-motion: reduce) {
         .card,
         .card-bg,

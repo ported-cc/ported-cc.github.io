@@ -64,6 +64,11 @@
     });
 </script>
 
+
+<svelte:head>
+    <title>Emulator | {rom} | CCPorted</title>
+</svelte:head>
+
 <div style="width:100%;height:100%;max-width:100%">
     <div id="game"></div>
 </div>

@@ -3,21 +3,9 @@ import type { PageLoad } from "./$types.js";
 import { initializeTooling, SessionState } from "$lib/state.js";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import type { Game } from "$lib/types/game.js";
-import { trackClick } from "$lib/helpers.js";
-import { page } from "$app/state";
 
 export const load: PageLoad = async ({ params }) => {
     const gameID = params.slug;
-    const searchParam =  page.url.searchParams;
-    const r = searchParam.get("r");
-    if (!r || r !== "t") {
-        // Track a click
-        try {
-            await trackClick(gameID);
-        } catch (error) {
-            console.error("Failed to track click:", error);
-        }
-    }
     const dbparams = {
         TableName: 'games_list',
         Key: {

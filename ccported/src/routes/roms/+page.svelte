@@ -90,6 +90,10 @@
     }
 </script>
 
+<svelte:head>
+    <title>Roms | CCPorted</title>
+</svelte:head>
+
 <div>
     <Navigation />
     <div class="container">
@@ -238,6 +242,34 @@
         section {
             border-radius: 8px;
             margin-bottom: 24px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .container {
+            padding: 0;
+            margin-top: 90px;
+            min-height: calc(100vh - 90px);
+            border-radius: 0;
+        }
+        .search {
+            border-radius: 0;
+            margin-bottom: 16px;
+        }
+        h2 {
+            font-size: 1rem;
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        ul {
+            border-radius: 0;
+        }
+        li {
+            font-size: 0.95rem;
+            padding: 10px 16px;
+        }
+        section {
+            margin-bottom: 16px;
         }
     }
 

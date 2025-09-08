@@ -35,6 +35,10 @@
     let bypassed = false;
 </script>
 
+<svelte:head>
+    <title>Tab Cloaker | CCPorted</title>
+</svelte:head>
+
 <Navigation />
 
 <br />
@@ -114,5 +118,21 @@
     }
     button:active {
         background: #111;
+    }
+
+    @media (max-width: 600px) {
+        center {
+            margin: 24px;
+            padding: 24px 16px;
+            max-width: 90%;
+        }
+        h1 {
+            font-size: 1.8rem;
+        }
+        input, button {
+            font-size: 1rem;
+            padding: 12px 18px;
+            border-radius: 20px;
+        }
     }
 </style>

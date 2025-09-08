@@ -1,4 +1,4 @@
-import { Servers, type Server, AHosts } from "./types/servers.js";
+import { Servers, type Server, AHosts, findServers } from "./types/servers.js";
 import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
 import { fromCognitoIdentityPool } from "@aws-sdk/credential-provider-cognito-identity";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -84,6 +84,8 @@ export async function initializeTooling() {
 
 
 export async function findServer(): Promise<Server | null> {
+    const servers = await findServers();
+    State.servers = servers;
     for (let server of State.servers.sort((a, b) => a.priority - b.priority)) {
         const response = await fetch(`https://${server.hostname}/blocked_res.txt`);
         if (response.ok && response.status === 200) {

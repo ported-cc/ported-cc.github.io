@@ -582,6 +582,7 @@
     @media (max-width: 768px) {
         .card-grid {
             padding: 10px;
+            box-sizing: border-box;
         }
 
         .card-grid.grid {
@@ -597,6 +598,54 @@
         .card-grid.grid,
         .card-grid.compact {
             grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .search {
+            width: 80%;
+        }
+        .sort-bar {
+            flex-wrap: wrap;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .search {
+            width: 95%;
+            gap: 8px;
+        }
+        .search input#search {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 1rem;
+        }
+        .search ul {
+            max-height: 40vh;
+        }
+        .search ul li.search-result-row {
+            padding: 12px;
+            gap: 12px;
+        }
+        .search ul li.search-result-row img {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+        }
+        li .game-name {
+            font-size: 1rem;
+        }
+        li .game-description {
+            font-size: 0.85rem;
+        }
+        .sort-bar {
+            gap: 8px;
+            padding: 8px;
+        }
+        .sort-bar select, .choose-for-me {
+            flex-grow: 1;
+            font-size: 0.9rem;
+            padding: 0 8px;
         }
     }
 
