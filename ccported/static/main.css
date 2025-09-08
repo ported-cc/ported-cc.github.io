@@ -1,0 +1,11 @@
+:root {
+    --theme-blue: #1e90ff;
+    --theme-blue-dark: #1c86ee;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
