@@ -6,6 +6,7 @@
     import { onMount } from "svelte";
     import { page } from "$app/state";
     import { detectAdBlockEnabled, trackClick } from "$lib/helpers.js";
+    import { browser } from "$app/environment";
 
     let game: Game | null = $state(null);
     let adblock = $state(false);
@@ -13,10 +14,10 @@
     let withoutSupportingTimer = $state(5);
     let continued = $state(false);
 
-    const searchParam = page.url.searchParams;
-    const gameID = searchParam.get("gameID");
-
     async function fetchGameData() {
+        if (!browser) return;
+        const searchParam = page.url.searchParams;
+        const gameID = searchParam.get("gameID");
         if (!gameID) {
             error = "Missing gameID query parameter";
             return;
@@ -51,8 +52,7 @@
     onMount(async () => {
         await fetchGameData();
         if (error || !game) return;
-        const searchParam = page.url.searchParams;
-        const r = searchParam.get("r");
+        const r = page.url.searchParams.get("r");
         if (!r || r !== "t") {
             // Track a click
             try {
@@ -62,7 +62,7 @@
                 console.error("Failed to track click:", err);
             }
         } else {
-            const url = new URL(window.location.href);
+            const url = new URL(page.url);
             url.searchParams.delete("r");
             window.history.replaceState({}, document.title, url.toString());
         }
@@ -86,11 +86,11 @@
     }) {
         console.log("UPDATING TO", server);
         if (server.name == State.currentServer.name) return;
-        if (!iframe || !game) return;
+        if (!iframe || !game || !browser) return;
         iframe.src = `https://${server.address.split(",")[0]}/${server.path}${game.gameID}/index.html`;
-        let query = new URLSearchParams(window.location.search);
+        let query = page.url.searchParams;
         query.set("server", server.name);
-        var url = new URL(window.location.href);
+        var url = new URL(page.url);
         url.search = query.toString();
         window.history.pushState({}, "", url);
     }
@@ -127,50 +127,36 @@
             }, 0);
 
             // Secure message handling from iframes
-            window.addEventListener("message", async (event) => {
-                try {
-                    console.log(event);
-                    if (!event.data.fromInternal) return;
-                    const allowedOrigins = State.servers.map(
-                        (s) => `https://${s.hostname}`,
-                    );
-                    if (
-                        !["http://localhost:8080", ...allowedOrigins].includes(
-                            event.origin,
-                        )
-                    ) {
-                        console.warn(
-                            `Rejected message from unauthorized origin: ${event.origin}`,
+            if (browser) {
+                window.addEventListener("message", async (event) => {
+                    try {
+                        console.log(event);
+                        if (!event.data.fromInternal) return;
+                        const allowedOrigins = State.servers.map(
+                            (s) => `https://${s.hostname}`,
                         );
-                        return;
-                    }
+                        if (
+                            ![
+                                "http://localhost:8080",
+                                ...allowedOrigins,
+                            ].includes(event.origin)
+                        ) {
+                            console.warn(
+                                `Rejected message from unauthorized origin: ${event.origin}`,
+                            );
+                            return;
+                        }
 
-                    const data = event.data;
+                        const data = event.data;
 
-                    if (data.action === "GET_TOKENS") {
-                        // Prepare response with the same requestId
-                        const response: any = {
-                            requestId: data.requestId,
-                        };
+                        if (data.action === "GET_TOKENS") {
+                            // Prepare response with the same requestId
+                            const response: any = {
+                                requestId: data.requestId,
+                            };
 
-                        if (SessionState.loggedIn && SessionState.user) {
-                            console.log("User logged in, sending tokens");
-                            try {
-                                const tokens = SessionState.user.tokens || {};
-                                response.action = "SET_TOKENS";
-                                response.content = tokens;
-                            } catch (error) {
-                                console.error(
-                                    "Error getting user tokens:",
-                                    error,
-                                );
-                                response.action = "ERROR";
-                                response.error = "Failed to get user tokens";
-                            }
-                        } else {
-                            // Try waiting for tooling/user
-                            await initializeTooling();
                             if (SessionState.loggedIn && SessionState.user) {
+                                console.log("User logged in, sending tokens");
                                 try {
                                     const tokens =
                                         SessionState.user.tokens || {};
@@ -186,43 +172,65 @@
                                         "Failed to get user tokens";
                                 }
                             } else {
-                                response.action = "NO_USER";
+                                // Try waiting for tooling/user
+                                await initializeTooling();
+                                if (
+                                    SessionState.loggedIn &&
+                                    SessionState.user
+                                ) {
+                                    try {
+                                        const tokens =
+                                            SessionState.user.tokens || {};
+                                        response.action = "SET_TOKENS";
+                                        response.content = tokens;
+                                    } catch (error) {
+                                        console.error(
+                                            "Error getting user tokens:",
+                                            error,
+                                        );
+                                        response.action = "ERROR";
+                                        response.error =
+                                            "Failed to get user tokens";
+                                    }
+                                } else {
+                                    response.action = "NO_USER";
+                                }
                             }
-                        }
 
-                        // Send response back to the exact source iframe
-                        console.log(response, event.origin);
-                        if (!event.source) return;
-                        event.source.postMessage(response, {
-                            targetOrigin: event.origin,
-                        });
-                    } else if (data.action === "SWITCH_SERVER") {
-                        updateIframe(data.server);
-                    } else if (data.action === "CACHE_ENABLED") {
-                        // Acknowledged (not an unknown action, but nothing to do)
-                        // NOTE: FOR CACHE ACTIONS, ADD "TYPE": "CACHE_CONTROL" so that it is not confused with auth flow.
-                    } else {
-                        // Handle unknown action
-                        if (!event.source) return;
-                        event.source.postMessage(
-                            {
-                                action: "UNKNOWN_ACTION",
-                                requestId: data.requestId,
-                            },
-                            {
+                            // Send response back to the exact source iframe
+                            console.log(response, event.origin);
+                            if (!event.source) return;
+                            event.source.postMessage(response, {
                                 targetOrigin: event.origin,
-                            },
-                        );
+                            });
+                        } else if (data.action === "SWITCH_SERVER") {
+                            updateIframe(data.server);
+                        } else if (data.action === "CACHE_ENABLED") {
+                            // Acknowledged (not an unknown action, but nothing to do)
+                            // NOTE: FOR CACHE ACTIONS, ADD "TYPE": "CACHE_CONTROL" so that it is not confused with auth flow.
+                        } else {
+                            // Handle unknown action
+                            if (!event.source) return;
+                            event.source.postMessage(
+                                {
+                                    action: "UNKNOWN_ACTION",
+                                    requestId: data.requestId,
+                                },
+                                {
+                                    targetOrigin: event.origin,
+                                },
+                            );
+                        }
+                    } catch (e: any) {
+                        if (!event.source) return;
+                        event.source.postMessage({
+                            action: "ERROR",
+                            error: e.message,
+                            requestId: event.data.requestId,
+                        });
                     }
-                } catch (e: any) {
-                    if (!event.source) return;
-                    event.source.postMessage({
-                        action: "ERROR",
-                        error: e.message,
-                        requestId: event.data.requestId,
-                    });
-                }
-            });
+                });
+            }
         }
     });
 </script>
