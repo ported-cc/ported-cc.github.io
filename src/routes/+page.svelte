@@ -72,7 +72,7 @@
             .length})<br />
         AHost: {State.isAHost()} (Loaded {State.aHosts.length})<br />
         AHosts: {@html State.aHosts.map(h => 
-            `<span style="color:${h.hostname === (browser && window.location.hostname) ? 'green' : 'red'}">${h.hostname}</span>`
+            `<span style="color:${browser && h.hostname === (window.location.hostname) ? 'green' : 'red'}">${h.hostname}</span>`
         ).join(", ")}
         <br />
         Games Loaded: {games.length} ({State.pinnedGames.length} pinned) - rendered
