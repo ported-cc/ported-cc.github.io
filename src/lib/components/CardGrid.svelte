@@ -1,28 +1,29 @@
 <script lang="ts">
-    import { decamelize, openGame } from "$lib/helpers.js";
+    import { decamelize, detectAdBlockEnabled, openGame } from "$lib/helpers.js";
     import { SessionState, State } from "$lib/state.js";
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
     import GameCard from "./GameCard.svelte";
     import Ad from "./Ad.svelte";
     import { findAHosts } from "$lib/types/servers.js";
+    import { browser } from "$app/environment";
 
     const props: { games: Game[] } = $props();
     let searchIsOpen = $state(false);
     const { games } = props;
 
     let adsEnabled = $state(false);
-    let adSlots = $state<{sidebar: string, grid: string} | null>(null);
+    let adSlots = $state<{ sidebar: string; grid: string } | null>(null);
 
     const adSlotConfig = {
         "ccported.github.io": {
             sidebar: "69fd2258-841e-496e-b471-7fee303347da",
-            grid: "1327f13c-fb3f-45df-9616-2c76dacf8707"
+            grid: "1327f13c-fb3f-45df-9616-2c76dacf8707",
         },
         "ccported.click": {
             sidebar: "52cde221-3941-473c-afbc-5376c9ae5f76",
-            grid: "29d0156c-2d0c-4d77-b80c-6a3c21b13dd2"
-        }
+            grid: "29d0156c-2d0c-4d77-b80c-6a3c21b13dd2",
+        },
     };
 
     // Sort options
@@ -216,9 +217,9 @@
         if (SessionState.ssr) return;
 
         (async () => {
-            const enabled = (!SessionState.adBlockEnabled && State.isAHost());
+            const enabled = !detectAdBlockEnabled() && State.isAHost();
             if (enabled) {
-                const host = State.currentServer.hostname;
+                const host = browser ? window.location.hostname : "<SSR_HOST>";
                 if (host in adSlotConfig) {
                     adSlots = adSlotConfig[host as keyof typeof adSlotConfig];
                 }
@@ -227,16 +228,32 @@
                     adsEnabled = false;
                     return;
                 }
-                const aHostData = aHosts.find(h => h.hostname === host);
+
+                const aHostData = aHosts.find((h) => h.hostname === host);
                 if (aHostData && aHostData.acode) {
-                    const script = document.createElement('script');
+                    const script = document.createElement("script");
                     script.src = `//monu.delivery/site/${aHostData.acode}`;
-                    script.setAttribute('data-cfasync', 'false');
+                    script.setAttribute("data-cfasync", "false");
                     script.defer = true;
                     document.head.appendChild(script);
                     adsEnabled = true;
                 } else {
-                    adsEnabled = false;
+                    if (!SessionState.devMode) {
+                        adsEnabled = false;
+                    } else {
+                        const script = document.createElement("script");
+                        script.src = `//monu.delivery/site/${aHosts[0].acode}`;
+                        script.setAttribute("data-cfasync", "false");
+                        script.defer = true;
+                        document.head.appendChild(script);
+                        adsEnabled = true;
+                        if (!adSlots) {
+                            adSlots =
+                                adSlotConfig[
+                                    aHosts[0].hostname as keyof typeof adSlotConfig
+                                ];
+                        }
+                    }
                 }
             }
         })();
@@ -417,7 +434,7 @@
         max-width: 1400px;
         margin-left: auto;
         margin-right: auto;
-    } 
+    }
     .sort-bar select {
         height: 40px;
         border-radius: 8px;
@@ -707,7 +724,8 @@
             gap: 8px;
             padding: 8px;
         }
-        .sort-bar select, .choose-for-me {
+        .sort-bar select,
+        .choose-for-me {
             flex-grow: 1;
             font-size: 0.9rem;
             padding: 0 8px;

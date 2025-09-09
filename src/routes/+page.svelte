@@ -12,10 +12,11 @@
 
     const { games } = data;
     let isAHost = $state(State.isAHost());
-
+    let devMode = $state(true);
     onMount(async () => {
         await initializeTooling();
         isAHost = State.isAHost();
+        devMode = SessionState.devMode;
     });
 </script>
 
@@ -27,7 +28,7 @@
     />
 </svelte:head>
 
-{#if isAHost || SessionState.devMode}
+{#if isAHost || devMode}
     <div class="container">
         <div class="background"></div>
         <Navigation />
@@ -71,9 +72,7 @@
         Current Server: {State.currentServer.name} (Loaded {State.servers
             .length})<br />
         AHost: {State.isAHost()} (Loaded {State.aHosts.length})<br />
-        AHosts: {@html State.aHosts.map(h => 
-            `<span style="color:${browser && h.hostname === (window.location.hostname) ? 'green' : 'red'}">${h.hostname}</span>`
-        ).join(", ")}
+        AHosts: {State.aHosts.map(h => h.hostname).join(", ")}
         <br />
         Games Loaded: {games.length} ({State.pinnedGames.length} pinned) - rendered
         {State.homeView}<br />

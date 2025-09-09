@@ -60,7 +60,7 @@ export const State = createState({
     homeView: "grid",
     pinnedGames: [],
     games: [],
-    isAHost: () => (AHosts.some((h): boolean => browser && h.hostname === window.location.hostname)),
+    isAHost: () => (AHosts.some((h): boolean => browser && h.hostname === window.location.hostname)) || SessionState.devMode,
     localPlays: 0
 });
 
