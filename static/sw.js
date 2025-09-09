@@ -16,7 +16,8 @@ const BLACKLIST = [
     "monu.delivery",
     "www.google-analytics.com",
     "cognito-identity.us-west-2.amazonaws.com",
-    "dynamodb.us-west-2.amazonaws.com"
+    "dynamodb.us-west-2.amazonaws.com",
+    "googletagmanager.com"
     // Note: removed amazonaws.com from blacklist since you have AWS domains in servers.txt
 ];
 
@@ -308,21 +309,21 @@ function getFileType(url) {
 }
 
 // Main fetch event handler
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch',async  event => {
     // Only handle GET requests
     if (event.request.method !== 'GET') return;
 
     const request = event.request;
+    const isCacheable = await isCacheableRequest(request);
 
+    if (!isCacheable) {
+        // Let non-cacheable requests pass through
+        return;
+    }
     event.respondWith(
         (async () => {
             // Check if request is cacheable
-            const isCacheable = await isCacheableRequest(request);
 
-            if (!isCacheable) {
-                // Let non-cacheable requests pass through
-                return fetch(request);
-            }
 
             const url = new URL(request.url);
             const fileType = getFileType(url);
