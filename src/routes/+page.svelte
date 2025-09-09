@@ -63,8 +63,8 @@
     </p>
     <div class="information">
         <!-- none of this information is statefull, therefore none of it will update. this is intended behavior -->
-        <b>Running Information:</b><br />
-        Browser: {navigator.userAgent}<br />
+        <b>Running Information:</b>
+        Browser: {browser && navigator.userAgent}<br />
         Host: {browser && window.location.hostname}<br />
         DevMode: {SessionState.devMode}<br />
         AdBlock: {SessionState.adBlockEnabled}<br />
@@ -72,7 +72,7 @@
             .length})<br />
         AHost: {State.isAHost()} (Loaded {State.aHosts.length})<br />
         AHosts: {@html State.aHosts.map(h => 
-            `<span style="color:${h.hostname === window.location.hostname ? 'green' : 'red'}">${h.hostname}</span>`
+            `<span style="color:${h.hostname === (browser && window.location.hostname) ? 'green' : 'red'}">${h.hostname}</span>`
         ).join(", ")}
         <br />
         Games Loaded: {games.length} ({State.pinnedGames.length} pinned) - rendered
