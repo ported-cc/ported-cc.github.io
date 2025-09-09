@@ -1,9 +1,8 @@
 import { ReturnValue, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import type { Game } from "./types/game.js";
 import { SessionState, State } from "./state.js";
-import detection from 'just-detect-adblock'
+import detectAnyAdBlocker from "./adblock/detectAnyAdblock.js";
 import { browser } from "$app/environment";
-const { detectAnyAdblocker } = detection;
 export function decamelize(string: string): string {
     // HelloWorld -> Hello World
     return string.replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -69,8 +68,15 @@ export async function importJSON(path: string): Promise<any> {
 
 export async function detectAdBlockEnabled() {
     if (!browser) return false; // Only run in browser
-    const detected = await detectAnyAdblocker();
-    return detected;
+    try {
+        const detected = await detectAnyAdBlocker();
+        SessionState.adBlockEnabled = detected;
+        SessionState.adsEnabled = !detected && State.isAHost();
+        return detected;
+    } catch (e) {
+        console.error("Adblock detection failed", e);
+        return true; // Assume adblock is enabled if detection fails
+    }
 }
 
 export function getTimeBetween(date1: Date, date2: Date): string {

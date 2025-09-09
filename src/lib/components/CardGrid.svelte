@@ -169,7 +169,7 @@
     }
 
     const searchRegex = /[a-z0-9]/i;
-    onMount(() => {
+    onMount(async () => {
         document.addEventListener("keydown", (e) => {
             if (!searchInput) return;
             // Ignore keyboard shortcuts, special keys, non a-z0-9, or backspace, enter, delete, etc.
@@ -216,47 +216,39 @@
 
         if (SessionState.ssr) return;
 
-        (async () => {
-            const enabled = !detectAdBlockEnabled() && State.isAHost();
-            if (enabled) {
-                const host = browser ? window.location.hostname : "<SSR_HOST>";
-                if (host in adSlotConfig) {
-                    adSlots = adSlotConfig[host as keyof typeof adSlotConfig];
-                }
+        await detectAdBlockEnabled();
+        console.log("AdBlock Enabled:", SessionState.adBlockEnabled);
+        adsEnabled = SessionState.adsEnabled;
+        if (adsEnabled) {
+            const host = browser ? window.location.hostname : "<SSR_HOST>";
+            if (host in adSlotConfig) {
+                adSlots = adSlotConfig[host as keyof typeof adSlotConfig];
+            }
+            (async () => {
                 const aHosts = await findAHosts();
                 if (!aHosts) {
                     adsEnabled = false;
+                    SessionState.adsEnabled = false;
                     return;
                 }
 
                 const aHostData = aHosts.find((h) => h.hostname === host);
                 if (aHostData && aHostData.acode) {
+                    const scriptId = `ad-script-${aHostData.acode}`;
+                    if (document.getElementById(scriptId)) return;
+
                     const script = document.createElement("script");
+                    script.id = scriptId;
                     script.src = `//monu.delivery/site/${aHostData.acode}`;
                     script.setAttribute("data-cfasync", "false");
                     script.defer = true;
                     document.head.appendChild(script);
-                    adsEnabled = true;
                 } else {
-                    if (!SessionState.devMode) {
-                        adsEnabled = false;
-                    } else {
-                        const script = document.createElement("script");
-                        script.src = `//monu.delivery/site/${aHosts[0].acode}`;
-                        script.setAttribute("data-cfasync", "false");
-                        script.defer = true;
-                        document.head.appendChild(script);
-                        adsEnabled = true;
-                        if (!adSlots) {
-                            adSlots =
-                                adSlotConfig[
-                                    aHosts[0].hostname as keyof typeof adSlotConfig
-                                ];
-                        }
-                    }
+                    adsEnabled = false;
+                    SessionState.adsEnabled = false;
                 }
-            }
-        })();
+            })();
+        }
     });
 
     $effect(() => {

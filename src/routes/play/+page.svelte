@@ -5,7 +5,7 @@
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
     import { page } from "$app/state";
-    import { trackClick } from "$lib/helpers.js";
+    import { detectAdBlockEnabled, trackClick } from "$lib/helpers.js";
 
     let game: Game | null = $state(null);
     let adblock = $state(false);
@@ -13,9 +13,10 @@
     let withoutSupportingTimer = $state(5);
     let continued = $state(false);
 
+    const searchParam = page.url.searchParams;
+    const gameID = searchParam.get("gameID");
+
     async function fetchGameData() {
-        const searchParam = page.url.searchParams;
-        const gameID = searchParam.get("gameID");
         if (!gameID) {
             error = "Missing gameID query parameter";
             return;
@@ -42,9 +43,11 @@
         }
         const unmarshalled = unmarshall(response.Item) as Game;
         game = unmarshalled;
-        adblock = SessionState.adBlockEnabled;
+        adblock = await detectAdBlockEnabled();
+        console.log(adblock);
     }
     let loading = $state(true);
+    let iframe = $state(null as null | HTMLIFrameElement);
     onMount(async () => {
         await fetchGameData();
         if (error || !game) return;
@@ -72,6 +75,154 @@
                     clearInterval(interval);
                 }
             }, 1000);
+        }
+    });
+
+    function updateIframe(server: {
+        address: string;
+        path: string;
+        index: number;
+        name: string;
+    }) {
+        console.log("UPDATING TO", server);
+        if (server.name == State.currentServer.name) return;
+        if (!iframe || !game) return;
+        iframe.src = `https://${server.address.split(",")[0]}/${server.path}${game.gameID}/index.html`;
+        let query = new URLSearchParams(window.location.search);
+        query.set("server", server.name);
+        var url = new URL(window.location.href);
+        url.search = query.toString();
+        window.history.pushState({}, "", url);
+    }
+
+    // Setup iframe load and message handling after game is loaded
+    $effect(() => {
+        if (game && !error) {
+            // Wait for DOM to update
+            setTimeout(() => {
+                if (!iframe) return;
+                iframe.addEventListener("load", async (e) => {
+                    if (!iframe) return;
+                    const w = iframe.contentWindow;
+                    if (!w) return;
+                    if (!SessionState.loggedIn) {
+                        await initializeTooling();
+                    }
+                    if (SessionState.loggedIn && SessionState.user) {
+                        console.log("Iframe loaded. User logged in: true");
+                        try {
+                            const tokens = SessionState.user.tokens || {};
+                            w.postMessage({
+                                action: "SET_TOKENS",
+                                content: tokens,
+                            });
+                        } catch (err) {
+                            console.error("Error sending tokens:", err);
+                        }
+                    } else {
+                        console.log("Iframe loaded. User not logged in.");
+                    }
+                    iframe.focus();
+                });
+            }, 0);
+
+            // Secure message handling from iframes
+            window.addEventListener("message", async (event) => {
+                try {
+                    console.log(event);
+                    if (!event.data.fromInternal) return;
+                    const allowedOrigins = State.servers.map(
+                        (s) => `https://${s.hostname}`,
+                    );
+                    if (
+                        !["http://localhost:8080", ...allowedOrigins].includes(
+                            event.origin,
+                        )
+                    ) {
+                        console.warn(
+                            `Rejected message from unauthorized origin: ${event.origin}`,
+                        );
+                        return;
+                    }
+
+                    const data = event.data;
+
+                    if (data.action === "GET_TOKENS") {
+                        // Prepare response with the same requestId
+                        const response: any = {
+                            requestId: data.requestId,
+                        };
+
+                        if (SessionState.loggedIn && SessionState.user) {
+                            console.log("User logged in, sending tokens");
+                            try {
+                                const tokens = SessionState.user.tokens || {};
+                                response.action = "SET_TOKENS";
+                                response.content = tokens;
+                            } catch (error) {
+                                console.error(
+                                    "Error getting user tokens:",
+                                    error,
+                                );
+                                response.action = "ERROR";
+                                response.error = "Failed to get user tokens";
+                            }
+                        } else {
+                            // Try waiting for tooling/user
+                            await initializeTooling();
+                            if (SessionState.loggedIn && SessionState.user) {
+                                try {
+                                    const tokens =
+                                        SessionState.user.tokens || {};
+                                    response.action = "SET_TOKENS";
+                                    response.content = tokens;
+                                } catch (error) {
+                                    console.error(
+                                        "Error getting user tokens:",
+                                        error,
+                                    );
+                                    response.action = "ERROR";
+                                    response.error =
+                                        "Failed to get user tokens";
+                                }
+                            } else {
+                                response.action = "NO_USER";
+                            }
+                        }
+
+                        // Send response back to the exact source iframe
+                        console.log(response, event.origin);
+                        if (!event.source) return;
+                        event.source.postMessage(response, {
+                            targetOrigin: event.origin,
+                        });
+                    } else if (data.action === "SWITCH_SERVER") {
+                        updateIframe(data.server);
+                    } else if (data.action === "CACHE_ENABLED") {
+                        // Acknowledged (not an unknown action, but nothing to do)
+                        // NOTE: FOR CACHE ACTIONS, ADD "TYPE": "CACHE_CONTROL" so that it is not confused with auth flow.
+                    } else {
+                        // Handle unknown action
+                        if (!event.source) return;
+                        event.source.postMessage(
+                            {
+                                action: "UNKNOWN_ACTION",
+                                requestId: data.requestId,
+                            },
+                            {
+                                targetOrigin: event.origin,
+                            },
+                        );
+                    }
+                } catch (e: any) {
+                    if (!event.source) return;
+                    event.source.postMessage({
+                        action: "ERROR",
+                        error: e.message,
+                        requestId: event.data.requestId,
+                    });
+                }
+            });
         }
     });
 </script>
@@ -107,6 +258,7 @@
         src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}/index.html`}
         frameborder="0"
         allowfullscreen
+        bind:this={iframe}
         title={`Playing ${game.fName}`}
     ></iframe>
 {:else if error}

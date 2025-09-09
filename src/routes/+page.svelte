@@ -13,10 +13,14 @@
     const { games } = data;
     let isAHost = $state(State.isAHost());
     let devMode = $state(true);
+    let adblockEnabled = $state(SessionState.adBlockEnabled);
+    let adsEnabled = $state(SessionState.adsEnabled);
     onMount(async () => {
         await initializeTooling();
         isAHost = State.isAHost();
         devMode = SessionState.devMode;
+        adblockEnabled = SessionState.adBlockEnabled;
+        adsEnabled = SessionState.adsEnabled;
     });
 </script>
 
@@ -68,7 +72,8 @@
         Browser: {browser ? navigator.userAgent : "<SSR_HOST>"}<br />
         Host: {browser ? window.location.hostname : "<SSR_HOST>"}<br />
         DevMode: {SessionState.devMode}<br />
-        AdBlock: {SessionState.adBlockEnabled}<br />
+        AdBlock Enabled: {adblockEnabled}<br />
+        Ads Enabled: {adsEnabled}<br />
         Current Server: {State.currentServer.name} (Loaded {State.servers
             .length})<br />
         AHost: {State.isAHost()} (Loaded {State.aHosts.length})<br />
@@ -77,7 +82,7 @@
         Games Loaded: {games.length} ({State.pinnedGames.length} pinned) - rendered
         {State.homeView}<br />
         Version: {State.version}<br />
-        Logged In: {State.loggedIn}<br />
+        Logged In: {SessionState.loggedIn}<br />
         SSR: {SessionState.ssr}<br />
         AWS Ready: {SessionState.awsReady}<br />
         AWS Acting: {SessionState.credentials?.identityId} | {SessionState

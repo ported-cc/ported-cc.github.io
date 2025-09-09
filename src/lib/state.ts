@@ -11,17 +11,19 @@ export const SessionState = {
     awsReady: false,
     ssr: !browser,
     adBlockEnabled: false,
+    adsEnabled: false,
     credentials: null as CognitoIdentityCredentials | null,
     dynamoDBClient: null as DynamoDBClient | null,
     s3Client: null as S3Client | null,
     devMode: (browser && window.location.hostname === "localhost"),
-    plays: 0
+    plays: 0,
+    user: null as null | { name: string; email: string; tokens: any } | undefined,
+    loggedIn: false
 }
 
 
 type StateType = {
     version: string;
-    loggedIn: boolean;
     servers: typeof Servers;
     aHosts: typeof AHosts;
     currentServer: Server;
@@ -53,7 +55,6 @@ function createState(initial: StateType): StateType {
 
 export const State = createState({
     version: "1.0.0",
-    loggedIn: false,
     servers: Servers,
     aHosts: AHosts,
     currentServer: Servers[0],
@@ -76,6 +77,8 @@ export async function initializeTooling() {
     }
     const adBlock = await detectAdBlockEnabled();
     SessionState.adBlockEnabled = adBlock;
+    SessionState.adsEnabled = !adBlock && State.isAHost();
+
     const credentials = await initializeUnathenticated();
     const dynamoDBClient = new DynamoDBClient({
         region: "us-west-2",
@@ -130,3 +133,4 @@ async function initializeUnathenticated() {
     SessionState.awsReady = true;
     return credentials;
 }
+

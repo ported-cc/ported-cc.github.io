@@ -11,7 +11,7 @@ let ALLOWED_DOMAINS = [
 ];
 
 const BLACKLIST = [
-    "pagead2.googlesyndication.com",
+    "googlesyndication.com",
     "storage.ko-fi.com",
     "monu.delivery",
     "www.google-analytics.com",
