@@ -1,38 +1,126 @@
-// service-worker.js - Enhanced for cross-origin caching
-const CACHE_NAME = 'ccported-cache-v1';
-const CACHE_METADATA_KEY = 'ccported-cache-metadata';
-const MAX_AGE_DAYS = 7; // Revalidate files older than 7 days
+// service-worker.js - Optimized for better caching strategies
+const CACHE_NAME = 'ccported-cache-v2';
 
 // Assets to cache immediately on service worker installation
 const PRECACHE_ASSETS = [
-    './index.html',    
 ];
 
-// Add the domains you want to cache from
-const ALLOWED_DOMAINS = [
+// Static allowed domains (fallback)
+let ALLOWED_DOMAINS = [
     'ccgstatic.com',
-    // Add other domains here as needed
 ];
+
 const BLACKLIST = [
     "pagead2.googlesyndication.com",
     "storage.ko-fi.com",
+    "monu.delivery",
     "www.google-analytics.com",
-    "amazonaws.com"
-]
+    "cognito-identity.us-west-2.amazonaws.com",
+    "dynamodb.us-west-2.amazonaws.com"
+    // Note: removed amazonaws.com from blacklist since you have AWS domains in servers.txt
+];
 
-// Install event - precache critical resources
+// Cache for storing servers list with timestamp
+let serversCache = {
+    domains: [],
+    lastUpdated: 0,
+    updateInterval: 5 * 60 * 1000 // 5 minutes
+};
+
+// Load and parse servers.txt
+async function updateAllowedDomains() {
+    try {
+        const now = Date.now();
+
+        // Check if we need to update (every 5 minutes)
+        if (now - serversCache.lastUpdated < serversCache.updateInterval && serversCache.domains.length > 0) {
+            return serversCache.domains;
+        }
+
+        console.log('Updating allowed domains from servers.txt');
+        const response = await fetch("/servers.txt", { cache: 'no-cache' });
+
+        if (!response.ok) {
+            console.warn('Failed to fetch servers.txt, using cached domains');
+            return serversCache.domains.length > 0 ? serversCache.domains : ALLOWED_DOMAINS;
+        }
+
+        const text = await response.text();
+        const domains = text.split('\n')
+            .map(line => line.split(",")[0].trim())
+            .filter(line => line.length > 0);
+
+        // Update cache
+        serversCache = {
+            domains: [...ALLOWED_DOMAINS, ...domains],
+            lastUpdated: now,
+            updateInterval: serversCache.updateInterval
+        };
+
+        console.log('Updated allowed domains:', serversCache.domains);
+        return serversCache.domains;
+
+    } catch (error) {
+        console.error('Error updating allowed domains:', error);
+        return serversCache.domains.length > 0 ? serversCache.domains : ALLOWED_DOMAINS;
+    }
+}
+
+// Robust precaching function
+async function precacheAssets(cache, assets) {
+    const results = await Promise.allSettled(
+        assets.map(async (asset) => {
+            try {
+                console.log('Precaching:', asset);
+                await cache.add(asset);
+                console.log('Successfully cached:', asset);
+            } catch (error) {
+                console.warn('Failed to precache:', asset, error.message);
+                // Try alternative approach for relative paths
+                if (asset.startsWith('./')) {
+                    const alternativeAsset = asset.substring(2);
+                    try {
+                        await cache.add(alternativeAsset);
+                        console.log('Successfully cached alternative path:', alternativeAsset);
+                    } catch (altError) {
+                        console.warn('Alternative path also failed:', alternativeAsset, altError.message);
+                        throw altError;
+                    }
+                } else {
+                    throw error;
+                }
+            }
+        })
+    );
+
+    // Log results
+    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    console.log(`Precaching completed: ${successful} successful, ${failed} failed`);
+
+    // Don't fail installation if some assets fail to precache
+    return true;
+}
+
+// Install event - precache critical resources and load servers
 self.addEventListener('install', event => {
-    fetch("/servers.txt").then(response => response.text()).then(text => {
-        const servers = text.split('\n').map(line => line.split(",")[0].trim()).filter(line => line.length > 0);
-        ALLOWED_DOMAINS.push(...servers);
-    });
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Precaching game assets');
-                return cache.addAll(PRECACHE_ASSETS);
-            })
-            .then(() => self.skipWaiting())
+        Promise.all([
+            // Precache assets with error handling
+            caches.open(CACHE_NAME).then(cache => {
+                console.log('Starting precaching process');
+                return precacheAssets(cache, PRECACHE_ASSETS);
+            }),
+            // Load servers list
+            updateAllowedDomains()
+        ]).then(() => {
+            console.log('Service worker installation completed');
+            return self.skipWaiting();
+        }).catch(error => {
+            console.error('Service worker installation failed:', error);
+            // Still skip waiting to allow the service worker to activate
+            return self.skipWaiting();
+        })
     );
 });
 
@@ -52,29 +140,11 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Helper function to identify large game files
-function isLargeGameFile(url) {
-    // Add patterns for your large game files
-    const gameFilePatterns = [
-        /\.data$/,          // Unity WebGL data files
-        /\.wasm$/,          // WebAssembly files
-        /\.bundle$/,        // Asset bundles
-        /\.unity3d$/,       // Unity asset files
-        /\.pak$/,           // Package files
-        /\.bin$/,           // Binary files
-        // Add your specific large file extensions here
-    ];
-    
-    return gameFilePatterns.some(pattern => pattern.test(url.pathname)) ||
-           url.pathname.includes('assets/') ||
-           url.pathname.includes('gamedata/');
-}
-
 // Helper function to determine if a request should be cached
-function isCacheableRequest(request) {
+async function isCacheableRequest(request) {
     const url = new URL(request.url);
 
-    // Never cache txt files, change often
+    // Never cache txt files (they change often)
     if (url.pathname.endsWith('.txt')) {
         return false;
     }
@@ -84,311 +154,256 @@ function isCacheableRequest(request) {
         return false;
     }
 
-    // Check if domain is allowed for cross-origin caching
-    const isAllowedDomain = ALLOWED_DOMAINS.some(domain => url.hostname.includes(domain));
+    // Check blacklist first
     const isBlacklisted = BLACKLIST.some(domain => url.hostname.includes(domain));
     if (isBlacklisted) {
         return false;
     }
-    // Allow caching for origin domain or explicitly allowed domains
+
+    // Allow caching for same origin
     const isSameOrigin = url.origin === self.location.origin;
-    if (!isSameOrigin && !isAllowedDomain) {
+    if (isSameOrigin) {
+        return true;
+    }
+
+    // For cross-origin, check against allowed domains
+    const allowedDomains = await updateAllowedDomains();
+    const isAllowedDomain = allowedDomains.some(domain => url.hostname.includes(domain));
+
+    if (!isAllowedDomain) {
         return false;
     }
 
-    // Cache based on file extensions (website - non game- assets)
-    const extensions = [
+    // Cache based on file extensions
+    const cacheableExtensions = [
         '.html', '.js', '.css', '.json',
         '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
         '.woff', '.woff2', '.ttf', '.otf',
         '.mp3', '.ogg', '.wav',
         '.mp4', '.webm',
-        // Game file extensions
         '.data', '.wasm', '.bundle', '.unity3d', '.pak', '.bin'
     ];
 
-    if (extensions.some(ext => url.pathname.endsWith(ext))) {
-        return true;
-    }
-
-    return false;
+    return cacheableExtensions.some(ext => url.pathname.endsWith(ext));
 }
 
 // Helper function to check if response is valid for caching
 function isValidResponse(response) {
-    return response && 
-           response.ok && 
-           response.status >= 200 && 
-           response.status < 300 &&
-           response.status !== 209; // Explicitly exclude 209 responses
+    return response &&
+        response.ok &&
+        response.status >= 200 &&
+        response.status < 300 &&
+        response.status !== 209;
 }
 
-// Network-first strategy with fallback to cache
+// Network-first strategy for HTML, CSS, JS
 async function networkFirstStrategy(request) {
+    const cache = await caches.open(CACHE_NAME);
+
     try {
-        // For cross-origin requests that need credentials, use appropriate fetch options
+        console.log('Network-first strategy for:', request.url);
+
+        // Configure fetch options for cross-origin requests
         const fetchOptions = {};
-        if (isCrossOrigin(request)) {
+        const url = new URL(request.url);
+        const isCrossOrigin = url.origin !== self.location.origin;
+
+        if (isCrossOrigin) {
             fetchOptions.mode = 'cors';
-            // Don't send credentials by default for cross-origin requests
-            // unless you explicitly need them
             fetchOptions.credentials = 'same-origin';
         }
 
-        // Try network first
-        const networkResponse = await fetch(request, fetchOptions);
+        // Try network first with a timeout
+        const networkResponse = await Promise.race([
+            fetch(request, fetchOptions),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Network timeout')), 5000)
+            )
+        ]);
 
-        // If successful and valid for caching, clone and cache
+        // If successful and valid, cache and return
         if (isValidResponse(networkResponse)) {
-            const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
             return networkResponse;
         }
 
-        // If network response is not valid for caching, try cache
-        if (networkResponse.status === 209) {
-            console.log('Received 209 response, falling back to cache for:', request.url);
-        }
-        
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
+        // If network response is invalid, try cache
+        throw new Error('Invalid network response');
 
-        // Return the network response even if not cacheable
-        return networkResponse;
     } catch (error) {
+        console.log('Network failed, trying cache for:', request.url, error.message);
+
         // Fall back to cache
-        const cachedResponse = await caches.match(request);
+        const cachedResponse = await cache.match(request);
         if (cachedResponse) {
+            console.log('Serving from cache:', request.url);
             return cachedResponse;
         }
 
-        // Nothing in cache, return the error response
+        // No cache available, return a basic error response for HTML
+        if (request.url.endsWith('.html')) {
+            return new Response(
+                `<!DOCTYPE html><html><head><title>Offline</title></head><body>
+                <h1>You're offline</h1><p>This page is not available offline.</p>
+                </body></html>`,
+                {
+                    headers: { 'Content-Type': 'text/html' },
+                    status: 200
+                }
+            );
+        }
+
         throw error;
     }
 }
 
-// Helper function to check if request is cross-origin
-function isCrossOrigin(request) {
-    const url = new URL(request.url);
-    return url.origin !== self.location.origin;
-}
-
-// Cache-first strategy with network fallback
+// Cache-first strategy for large game files
 async function cacheFirstStrategy(request) {
-    // Try the cache first
-    const cachedResponse = await caches.match(request);
+    const cache = await caches.open(CACHE_NAME);
+
+    // Try cache first
+    const cachedResponse = await cache.match(request);
     if (cachedResponse) {
+        console.log('Game asset served from cache:', request.url);
         return cachedResponse;
     }
 
-    // If not in cache, get from network with appropriate options
+    // Fetch from network
     try {
+        console.log('Fetching and caching game asset:', request.url);
+
+        const url = new URL(request.url);
         const fetchOptions = {};
-        if (isCrossOrigin(request)) {
+
+        if (url.origin !== self.location.origin) {
             fetchOptions.mode = 'cors';
             fetchOptions.credentials = 'same-origin';
         }
 
         const networkResponse = await fetch(request, fetchOptions);
 
-        // Cache the network response for future if it's valid
         if (isValidResponse(networkResponse)) {
-            const cache = await caches.open(CACHE_NAME);
             cache.put(request, networkResponse.clone());
         }
 
         return networkResponse;
+
     } catch (error) {
-        // Handle fetch failure
-        console.error('Fetch failed:', error);
+        console.error('Failed to fetch game asset:', request.url, error);
         throw error;
     }
 }
 
-// Stale-while-revalidate strategy
-async function staleWhileRevalidateStrategy(request) {
-    // Try to get from cache immediately
-    const cachedResponse = await caches.match(request);
+// Helper function to identify file types
+function getFileType(url) {
+    const pathname = url.pathname.toLowerCase();
 
-    // Fetch from network and update cache in the background
-    const fetchOptions = {};
-    if (isCrossOrigin(request)) {
-        fetchOptions.mode = 'cors';
-        fetchOptions.credentials = 'same-origin';
-    }
+    if (pathname.endsWith('.html')) return 'html';
+    if (pathname.endsWith('.css')) return 'css';
+    if (pathname.endsWith('.js')) return 'js';
+    if (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(pathname)) return 'image';
+    if (/\.(data|wasm|bundle|unity3d|pak|bin)$/i.test(pathname)) return 'game';
 
-    const fetchPromise = fetch(request, fetchOptions).then(networkResponse => {
-        if (isValidResponse(networkResponse)) {
-            const cache = caches.open(CACHE_NAME).then(cache => {
-                cache.put(request, networkResponse.clone());
-                return networkResponse;
-            });
-        }
-        return networkResponse;
-    }).catch(error => {
-        console.error('Background fetch failed:', error);
-    });
-
-    // Return the cached response immediately if we have it
-    return cachedResponse || fetchPromise;
+    return 'other';
 }
 
-// Time-aware cache-first strategy with network fallback
-async function timeAwareCacheFirstStrategy(request) {
-    // Check if we have a cached version first
-    const cachedResponse = await caches.match(request.url);
-    // Determine if the cached file is stale
-    const isStale = await isFileStale(request.url);
-    
-    // If we have a non-stale cached response, return it
-    if (cachedResponse && !isStale) {
-        return cachedResponse;
-    }
-    
-    console.log('Cache miss or stale for:', request.url, { isStale, hasCached: !!cachedResponse });
-    
-    // Otherwise, get from network (either no cache or stale cache)
-    try {
-        const fetchOptions = {};
-        if (isCrossOrigin(request)) {
-            fetchOptions.mode = 'cors';
-            fetchOptions.credentials = 'same-origin';
-        }
-
-        const networkResponse = await fetch(request, fetchOptions);
-        
-        // Cache the network response for future if it's valid
-        if (isValidResponse(networkResponse)) {
-            const cache = await caches.open(CACHE_NAME);
-            await cache.put(request, networkResponse.clone());
-            await updateCacheTimestamp(request.url);
-        } else if (networkResponse.status === 209) {
-            console.log('Received 209 response, not caching:', request.url);
-        }
-        
-        return networkResponse;
-    } catch (error) {
-        // If network fails and we have a cached version (even if stale), return it
-        if (cachedResponse) {
-            console.log('Network failed, returning stale cache for:', request.url);
-            return cachedResponse;
-        }
-        
-        // No cached fallback available
-        console.error('Fetch failed:', error);
-        throw error;
-    }
-}
-
-// Helper function to save cache metadata
-async function saveMetadataStore(metadata) {
-    const cache = await caches.open(CACHE_NAME);
-    const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-    const metadataResponse = new Response(metadataBlob);
-    await cache.put(CACHE_METADATA_KEY, metadataResponse);
-}
-
-// Helper function to update timestamp for a cached file
-async function updateCacheTimestamp(url) {
-    try {
-        const metadata = await getMetadataStore();
-        metadata[url] = Date.now();
-        await saveMetadataStore(metadata);
-    } catch (error) {
-        console.error('Failed to update cache timestamp:', error);
-    }
-}
-
-async function isFileStale(url) {
-    try {
-        const metadata = await getMetadataStore();
-        const timestamp = metadata[url];
-        
-        if (!timestamp) {
-            console.log("No timestamp for", url);
-            return true; // No timestamp means we should revalidate
-        }
-        
-        const now = Date.now();
-        const age = now - timestamp;
-        const maxAgeMs = MAX_AGE_DAYS * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-        return age > maxAgeMs;
-    } catch (error) {
-        console.error('Error checking if file is stale:', error);
-        return true; // Assume stale on error
-    }
-}
-
-// Helper function to get the cache metadata store
-async function getMetadataStore() {
-    try {
-        const cache = await caches.open(CACHE_NAME);
-        const metadataResponse = await cache.match(CACHE_METADATA_KEY);
-        
-        if (metadataResponse) {
-            return await metadataResponse.json();
-        } else {
-            // Initialize with empty metadata if none exists
-            return {};
-        }
-    } catch (error) {
-        console.error('Error getting metadata store:', error);
-        return {};
-    }
-}
-
-// Fetch event - handle all requests
+// Main fetch event handler
 self.addEventListener('fetch', event => {
-    // Ignore non-GET requests
+    // Only handle GET requests
     if (event.request.method !== 'GET') return;
 
     const request = event.request;
 
-    // Choose caching strategy based on request type
-    if (isCacheableRequest(request)) {
-        // For image assets from external domains, use cache-first
-        const url = new URL(request.url);
-        const isImage = /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(url.pathname);
-        const isExternalDomain = ALLOWED_DOMAINS.some(domain => url.hostname.includes(domain));
-        
-        if (isImage && isExternalDomain) {
-            event.respondWith(timeAwareCacheFirstStrategy(request));
-        }
-        // For game assets, use cache-first (these are your large files)
-        else if (request.url.includes('game_') || isLargeGameFile(url)) {
-            console.log('Service worker caching game asset:', request.url);
-            event.respondWith(cacheFirstStrategy(request));
-        }
-        // For HTML, JSON, TXT and JS files, use network-first to get latest versions
-        else if (request.url.endsWith('.html') || request.url.endsWith('.json') || request.url.endsWith('.txt') || request.url.endsWith('.js')) {
-            event.respondWith(networkFirstStrategy(request));
-        }
-        // For everything else cacheable, use time-aware cache
-        else {
-            event.respondWith(timeAwareCacheFirstStrategy(request));
-        }
-    }
-    // Let non-cacheable requests go through without service worker intervention
+    event.respondWith(
+        (async () => {
+            // Check if request is cacheable
+            const isCacheable = await isCacheableRequest(request);
+
+            if (!isCacheable) {
+                // Let non-cacheable requests pass through
+                return fetch(request);
+            }
+
+            const url = new URL(request.url);
+            const fileType = getFileType(url);
+            const allowedDomains = await updateAllowedDomains();
+            const isFromAllowedDomain = allowedDomains.some(domain => url.hostname.includes(domain));
+
+            // Route based on file type and domain
+            switch (fileType) {
+                case 'html':
+                case 'css':
+                case 'js':
+                    return networkFirstStrategy(request);
+
+                case 'image':
+                    if (isFromAllowedDomain) {
+                        return cacheOnlyForImages(request);
+                    }
+                    return networkFirstStrategy(request);
+
+                case 'game':
+                    return cacheFirstStrategy(request);
+
+                default:
+                    // For other cacheable files, use network-first
+                    return networkFirstStrategy(request);
+            }
+        })()
+    );
 });
+
+async function cacheOnlyForImages(request) {
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+        console.log('Image served from cache:', request.url);
+        return cachedResponse;
+    }
+    try {
+        console.log('Fetching and caching image:', request.url);
+        const fetchOptions = {
+            mode: 'cors',
+            credentials: 'same-origin'
+        };
+        const networkResponse = await fetch(request, fetchOptions);
+
+        if (isValidResponse(networkResponse)) {
+            cache.put(request, networkResponse.clone());
+        }
+
+        return networkResponse;
+
+    } catch (error) {
+        console.error('Failed to fetch image:', request.url, error);
+        throw error;
+    }
+}
 
 // Listen for messages from the main thread
 self.addEventListener('message', event => {
-    // Handle custom cache invalidation
     if (event.data && event.data.action === 'CLEAR_CACHE') {
         caches.delete(CACHE_NAME).then(() => {
+            // Also clear servers cache
+            serversCache = { domains: [], lastUpdated: 0, updateInterval: 5 * 60 * 1000 };
             event.ports[0].postMessage({ status: 'Cache cleared' });
         });
     }
-    
-    // Handle force refresh for specific URLs
+
     if (event.data && event.data.action === 'FORCE_REFRESH') {
         const url = event.data.url;
         caches.open(CACHE_NAME).then(cache => {
             cache.delete(url).then(() => {
                 event.ports[0].postMessage({ status: `Cache cleared for ${url}` });
             });
+        });
+    }
+
+    if (event.data && event.data.action === 'UPDATE_SERVERS') {
+        // Force update of allowed domains
+        serversCache.lastUpdated = 0;
+        updateAllowedDomains().then(() => {
+            event.ports[0].postMessage({ status: 'Servers list updated' });
         });
     }
 });
