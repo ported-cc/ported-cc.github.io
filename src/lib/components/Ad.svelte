@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount } from "svelte";
 
-	export let slotId: string;
-
+	const { slotId }: { slotId: string } = $props();
+	
 	onMount(() => {
-        if (typeof window === 'undefined') return;
+		if (typeof window === "undefined") return;
 
 		const MMT = (window as any).$MMT || {};
-        (window as any).$MMT = MMT;
+		(window as any).$MMT = MMT;
 		MMT.cmd = MMT.cmd || [];
 		MMT.cmd.push(function () {
 			MMT.display.slots.push([slotId]);

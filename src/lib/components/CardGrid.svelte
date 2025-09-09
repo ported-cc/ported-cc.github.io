@@ -290,8 +290,7 @@
                 <li
                     class="search-result-row"
                     class:selected={i === selectedIndex}
-                    onclick={() =>
-                        (window.location.href = `/play/${result.game.gameID}`)}
+                    onclick={() => openGame(result.game)}
                 >
                     <img
                         src={`https://${State.currentServer.hostname}/${State.currentServer.path}${result.game.gameID}${result.game.thumbPath}`}
@@ -387,7 +386,6 @@
                 />
                 {#if adsEnabled && adSlots && (i + 1) % 8 === 0}
                     <div class="inxxx agrid grid">
-                        AHELLO
                         <Ad slotId={adSlots.grid} />
                     </div>
                 {/if}
