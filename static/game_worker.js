@@ -81,7 +81,7 @@ async function isFileStale(url) {
         
         const now = Date.now();
         const age = now - timestamp;
-        const maxAgeMs = MAX_AGE_DAYS * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+        const maxAgeMs = MAX_AGE_DAYS * 24 * 60 * 60 * 1000; // 7 days in milliseconds
         
         return age > maxAgeMs;
     } catch (error) {
