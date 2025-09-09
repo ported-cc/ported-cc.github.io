@@ -170,6 +170,7 @@
     const searchRegex = /[a-z0-9]/i;
     onMount(() => {
         document.addEventListener("keydown", (e) => {
+            if (!searchInput) return;
             // Ignore keyboard shortcuts, special keys, non a-z0-9, or backspace, enter, delete, etc.
             if (
                 e.key.length == 1 &&

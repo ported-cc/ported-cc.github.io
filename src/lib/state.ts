@@ -14,7 +14,6 @@ export const SessionState = {
     dynamoDBClient: null as DynamoDBClient | null,
     s3Client: null as S3Client | null,
     devMode: (browser && window.location.hostname === "localhost"),
-
 }
 
 
