@@ -64,9 +64,9 @@
     </p>
     <div class="information">
         <!-- none of this information is statefull, therefore none of it will update. this is intended behavior -->
-        <b>Running Information:</b>
-        Browser: {browser && navigator.userAgent}<br />
-        Host: {browser && window.location.hostname}<br />
+        <b>Running Information:</b><br>
+        Browser: {browser ? navigator.userAgent : "<SSR_HOST>"}<br />
+        Host: {browser ? window.location.hostname : "<SSR_HOST>"}<br />
         DevMode: {SessionState.devMode}<br />
         AdBlock: {SessionState.adBlockEnabled}<br />
         Current Server: {State.currentServer.name} (Loaded {State.servers
