@@ -49,7 +49,7 @@ export async function trackClick(gameID: string): Promise<void> {
     }
 }
 
-export function capitalizeWords(str: string): string{
+export function capitalizeWords(str: string): string {
     return str.split('_').map(word =>
         word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
@@ -61,4 +61,16 @@ export async function importJSON(path: string): Promise<any> {
         throw new Error(`Failed to load JSON from ${path}: ${res.status} ${res.statusText}`);
     }
     return res.json();
+}
+
+
+export async function detectAdBlockEnabled() {
+    let isAdBlockEnabled = false
+    const googleAdUrl = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'
+    try {
+        await fetch(new Request(googleAdUrl)).catch(_ => isAdBlockEnabled = true)
+    } catch (e) {
+        isAdBlockEnabled = true;
+    }
+    return isAdBlockEnabled;
 }

@@ -20,4 +20,4 @@
         <div class="background"></div>
         <Navigation />
         <CardGrid {games} />
-</div> 
+</div>

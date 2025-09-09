@@ -25,5 +25,5 @@ export const load: PageLoad = async ({ params }) => {
     }
     const unmarshalled = unmarshall(response.Item);
 
-    return unmarshalled as Game;
+    return { game: unmarshalled, adblock: SessionState.adBlockEnabled } as { game: Game, adblock: boolean };
 }

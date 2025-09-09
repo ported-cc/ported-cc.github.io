@@ -5,10 +5,12 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { Game } from "./types/game.js";
 import { browser } from '$app/environment';
 import { S3Client } from "@aws-sdk/client-s3";
+import { detectAdBlockEnabled } from "./helpers.js";
 
 export const SessionState = {
     awsReady: false,
     ssr: !browser,
+    adBlockEnabled: false,
     dynamoDBClient: null as DynamoDBClient | null,
     s3Client: null as S3Client | null
 }
@@ -67,7 +69,8 @@ export async function initializeTooling() {
     } else {
         State.currentServer = server;
     }
-
+    const adBlock = await detectAdBlockEnabled();
+    SessionState.adBlockEnabled = adBlock;
     const credentials = await initializeUnathenticated();
     const dynamoDBClient = new DynamoDBClient({
         region: "us-west-2",
@@ -76,7 +79,7 @@ export async function initializeTooling() {
     const s3Client = new S3Client({
         region: "us-west-2",
         credentials
-    })
+    });
     SessionState.awsReady = true;
     SessionState.dynamoDBClient = dynamoDBClient;
     SessionState.s3Client = s3Client;
@@ -121,14 +124,4 @@ async function initializeUnathenticated() {
     SessionState.awsReady = true;
 
     return credentials;
-}
-
-async function query(args: { partitionKeyName: string, partitionKey: string, tableName: string, otherData: any }) {
-    if (!SessionState.awsReady) {
-        await initializeUnathenticated();
-    }
-
-    const { partitionKeyName, partitionKey, tableName, otherData } = args;
-
-
 }
