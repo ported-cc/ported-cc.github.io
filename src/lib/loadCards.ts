@@ -38,6 +38,6 @@ export async function loadGames(): Promise<Game[]> {
             });
         }
     }
-    console.log(games.reduce((a, v) => a + v.clicks, 0).toLocaleString() + " total plays");
+    SessionState.plays = games.reduce((a, v) => a + v.clicks, 0);
     return games;
 }

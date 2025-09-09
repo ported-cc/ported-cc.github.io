@@ -1,6 +1,6 @@
 import { Servers, type Server, AHosts, findServers } from "./types/servers.js";
 import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
-import { fromCognitoIdentityPool } from "@aws-sdk/credential-provider-cognito-identity";
+import { fromCognitoIdentityPool, type CognitoIdentityCredentials } from "@aws-sdk/credential-provider-cognito-identity";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { Game } from "./types/game.js";
 import { browser } from '$app/environment';
@@ -11,9 +11,11 @@ export const SessionState = {
     awsReady: false,
     ssr: !browser,
     adBlockEnabled: false,
+    credentials: null as CognitoIdentityCredentials | null,
     dynamoDBClient: null as DynamoDBClient | null,
     s3Client: null as S3Client | null,
     devMode: (browser && window.location.hostname === "localhost"),
+    plays: 0
 }
 
 
@@ -27,6 +29,7 @@ type StateType = {
     pinnedGames: string[];
     games: Game[];
     isAHost: () => boolean;
+    localPlays: number;
 };
 
 function saveState() {
@@ -57,7 +60,8 @@ export const State = createState({
     homeView: "grid",
     pinnedGames: [],
     games: [],
-    isAHost: () => (AHosts.some((h): boolean => h.hostname === State.currentServer.hostname))
+    isAHost: () => (AHosts.some((h): boolean => h.hostname === State.currentServer.hostname)),
+    localPlays: 0
 });
 
 
@@ -81,6 +85,7 @@ export async function initializeTooling() {
         region: "us-west-2",
         credentials
     });
+    SessionState.credentials = await credentials();
     SessionState.awsReady = true;
     SessionState.dynamoDBClient = dynamoDBClient;
     SessionState.s3Client = s3Client;
@@ -123,6 +128,5 @@ async function initializeUnathenticated() {
     });
 
     SessionState.awsReady = true;
-
     return credentials;
 }

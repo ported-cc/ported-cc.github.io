@@ -1,6 +1,6 @@
 import { ReturnValue, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import type { Game } from "./types/game.js";
-import { SessionState } from "./state.js";
+import { SessionState, State } from "./state.js";
 
 export function decamelize(string: string): string {
     // HelloWorld -> Hello World
@@ -28,6 +28,7 @@ export async function openGame(game: Game) {
 
 export async function trackClick(gameID: string): Promise<void> {
     try {
+        State.localPlays += 1;
         const params = {
             TableName: 'games_list',
             Key: {
@@ -73,4 +74,22 @@ export async function detectAdBlockEnabled() {
         isAdBlockEnabled = true;
     }
     return isAdBlockEnabled;
+}
+
+export function getTimeBetween(date1: Date, date2: Date): string {
+    const t1 = date1.getTime();
+    const t2 = date2.getTime();
+    const diff = Math.abs(t2 - t1);
+
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    // Subtract days/hours/minutes to get remainder for each unit
+    const remHours = hours % 24;
+    const remMinutes = minutes % 60;
+    const remSeconds = seconds % 60;
+
+    return `${days}d ${remHours}h ${remMinutes}m ${remSeconds}s`;
 }
