@@ -393,7 +393,7 @@
                         toggleSearch(decamelize(tag));
                     }}
                 />
-                {#if adsEnabled && adSlots && (i + 1) % 8 === 0}
+                {#if adsEnabled && adSlots && (i + 1) % 10 === 0}
                     <div class="inxxx agrid grid">
                         <Ad slotId={adSlots.grid} />
                     </div>
@@ -761,6 +761,15 @@
     .inxxx.agrid.grid {
         padding: 20px;
         box-sizing: border-box;
+    }
+    .inxx.agrid.grid::before {
+        content: "Ad Loading";
+        display: block;
+        text-align: center;
+        color: #888;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+        animation: fadeIn 0.5s ease-in-out;
     }
 
     @media (max-width: 1800px) {
