@@ -84,6 +84,7 @@
                 <th style="border-bottom: 1px solid #ccc; text-align: left;">Server</th>
                 <th style="border-bottom: 1px solid #ccc; text-align: left;">Status</th>
                 <th style="border-bottom: 1px solid #ccc; text-align: left;">Ping (ms)</th>
+                <th style="border-bottom: 1px solid #ccc; text-align: left;">Check</th>
             </tr>
             </thead>    
             <tbody>
@@ -92,6 +93,7 @@
                 <td>{r.server.name}</td>
                 <td>{r.success ? "Success" : "Failed"}</td>
                 <td>{r.time.toFixed(2)}</td>
+                <td>{r.level}- {r.reason}</td>
                 </tr>
             {/each}
             </tbody>
@@ -158,4 +160,5 @@
         text-align: left;
         font-family: "Courier New", Courier, monospace;
     }
+    
 </style>

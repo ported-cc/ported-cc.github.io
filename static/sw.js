@@ -38,11 +38,9 @@ async function updateAllowedDomains() {
             return serversCache.domains;
         }
 
-        console.log('Updating allowed domains from servers.txt');
         const response = await fetch("/servers.txt", { cache: 'no-cache' });
 
         if (!response.ok) {
-            console.warn('Failed to fetch servers.txt, using cached domains');
             return serversCache.domains.length > 0 ? serversCache.domains : ALLOWED_DOMAINS;
         }
 
@@ -58,7 +56,6 @@ async function updateAllowedDomains() {
             updateInterval: serversCache.updateInterval
         };
 
-        console.log('Updated allowed domains:', serversCache.domains);
         return serversCache.domains;
 
     } catch (error) {
@@ -72,9 +69,7 @@ async function precacheAssets(cache, assets) {
     const results = await Promise.allSettled(
         assets.map(async (asset) => {
             try {
-                console.log('Precaching:', asset);
                 await cache.add(asset);
-                console.log('Successfully cached:', asset);
             } catch (error) {
                 console.warn('Failed to precache:', asset, error.message);
                 // Try alternative approach for relative paths
@@ -82,7 +77,6 @@ async function precacheAssets(cache, assets) {
                     const alternativeAsset = asset.substring(2);
                     try {
                         await cache.add(alternativeAsset);
-                        console.log('Successfully cached alternative path:', alternativeAsset);
                     } catch (altError) {
                         console.warn('Alternative path also failed:', alternativeAsset, altError.message);
                         throw altError;
@@ -97,7 +91,6 @@ async function precacheAssets(cache, assets) {
     // Log results
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
-    console.log(`Precaching completed: ${successful} successful, ${failed} failed`);
 
     // Don't fail installation if some assets fail to precache
     return true;
@@ -109,7 +102,6 @@ self.addEventListener('install', event => {
         Promise.all([
             // Precache assets with error handling
             caches.open(CACHE_NAME).then(cache => {
-                console.log('Starting precaching process');
                 return precacheAssets(cache, PRECACHE_ASSETS);
             }),
             // Load servers list
@@ -144,7 +136,9 @@ self.addEventListener('activate', event => {
 // Helper function to determine if a request should be cached
 async function isCacheableRequest(request) {
     const url = new URL(request.url);
-
+    if (url.pathname.includes("blocked_res")) {
+        return false; // Never cache ping requests
+    }
     // Never cache txt files (they change often)
     if (url.pathname.endsWith('.txt')) {
         return false;
@@ -202,7 +196,6 @@ async function networkFirstStrategy(request) {
     const cache = await caches.open(CACHE_NAME);
 
     try {
-        console.log('Network-first strategy for:', request.url);
 
         // Configure fetch options for cross-origin requests
         const fetchOptions = {};
@@ -237,7 +230,6 @@ async function networkFirstStrategy(request) {
         // Fall back to cache
         const cachedResponse = await cache.match(request);
         if (cachedResponse) {
-            console.log('Serving from cache:', request.url);
             return cachedResponse;
         }
 
@@ -265,7 +257,6 @@ async function cacheFirstStrategy(request) {
     // Try cache first
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
-        console.log('Game asset served from cache:', request.url);
         return cachedResponse;
     }
 
@@ -309,22 +300,20 @@ function getFileType(url) {
 }
 
 // Main fetch event handler
-self.addEventListener('fetch',async  event => {
+self.addEventListener('fetch', async event => {
     // Only handle GET requests
     if (event.request.method !== 'GET') return;
 
     const request = event.request;
     const isCacheable = await isCacheableRequest(request);
-
     if (!isCacheable) {
+        console.log('Fetch request for:', new URL(request.url).hostname, 'Cacheable:', isCacheable);
         // Let non-cacheable requests pass through
         return;
     }
+    console.log('Handling fetch for:', request.url, 'Cacheable:', isCacheable);
     event.respondWith(
         (async () => {
-            // Check if request is cacheable
-
-
             const url = new URL(request.url);
             const fileType = getFileType(url);
             const allowedDomains = await updateAllowedDomains();
@@ -358,11 +347,9 @@ async function cacheOnlyForImages(request) {
     const cache = await caches.open(CACHE_NAME);
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
-        console.log('Image served from cache:', request.url);
         return cachedResponse;
     }
     try {
-        console.log('Fetching and caching image:', request.url);
         const fetchOptions = {
             mode: 'cors',
             credentials: 'same-origin'
