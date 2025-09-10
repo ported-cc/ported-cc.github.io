@@ -5,7 +5,6 @@
     import { initializeTooling, SessionState, State } from "$lib/state.js";
     import { onMount } from "svelte";
     import type { PageData } from "./$types.js";
-    import { getTimeBetween } from "$lib/helpers.js";
     import { browser } from "$app/environment";
     import { page } from "$app/state";
 

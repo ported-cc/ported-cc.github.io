@@ -95,9 +95,12 @@ export async function initializeTooling() {
 
 
 export async function findServer(): Promise<Server | null> {
+    if (State.servers && State.servers.length > 0 &&
+        SessionState.serverResponses.length === State.servers.length) {
+        return SessionState.serverResponses.find(r => r.success)?.server || null;
+    }
     const servers = await findServers();
     State.servers = servers;
-    SessionState.serverResponses = [];
     for (let server of State.servers.sort((a, b) => a.priority - b.priority)) {
         await testServer(server);
     }
@@ -117,6 +120,10 @@ export function loadState(state: StateType): StateType {
 
 async function testServer(server: Server): Promise<void> {
     if (!browser) return;
+    if (SessionState.serverResponses.find(r => r.server.hostname === server.hostname)) {
+        // Already tested
+        return;
+    }
     const start = performance.now();
     const response = await fetch(`https://${server.hostname}/blocked_res.txt`);
     // Increment difficulty of test to track where they fail
