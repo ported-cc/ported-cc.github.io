@@ -16,6 +16,7 @@ export const SessionState = {
     dynamoDBClient: null as DynamoDBClient | null,
     s3Client: null as S3Client | null,
     devMode: (browser && window.location.hostname === "localhost"),
+    serverResponses: [] as { server: Server; success: boolean; time: number }[],
     plays: 0,
     user: null as null | { name: string; email: string; tokens: any } | undefined,
     loggedIn: false
@@ -61,7 +62,7 @@ export const State = createState({
     homeView: "grid",
     pinnedGames: [],
     games: [],
-    isAHost: () => (AHosts.some((h): boolean => browser && h.hostname === window.location.hostname)) || SessionState.devMode,
+    isAHost: () => (AHosts.some((h): boolean => browser && h.hostname === window.location.hostname)),
     localPlays: 0
 });
 
@@ -98,16 +99,26 @@ export async function initializeTooling() {
 export async function findServer(): Promise<Server | null> {
     const servers = await findServers();
     State.servers = servers;
+    SessionState.serverResponses = [];
     for (let server of State.servers.sort((a, b) => a.priority - b.priority)) {
+        const start = performance.now();
         const response = await fetch(`https://${server.hostname}/blocked_res.txt`);
+        let end = start;
+        if (response) end = performance.now();
+
         if (response.ok && response.status === 200) {
             const text = await response.text();
             if (text.includes("===NOT_BLOCKED===") && text.includes("SOmehtin23\"")) {
-                return server;
+                SessionState.serverResponses.push({ server, success: true, time: end - start });
+            } else {
+                SessionState.serverResponses.push({ server, success: false, time: end - start });
             }
+        } else {
+            SessionState.serverResponses.push({ server, success: false, time: end - start });
         }
     }
-    return null;
+    // Already sorted by priority, so first success is best
+    return SessionState.serverResponses.find(r => r.success)?.server || null;
 }
 
 export function loadState(state: StateType): StateType {
