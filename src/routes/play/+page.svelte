@@ -1,6 +1,11 @@
 <script lang="ts">
     import { GetItemCommand } from "@aws-sdk/client-dynamodb";
-    import { initializeTooling, SessionState, State, waitForTooling } from "$lib/state.js";
+    import {
+        initializeTooling,
+        SessionState,
+        State,
+        waitForTooling,
+    } from "$lib/state.js";
     import { unmarshall } from "@aws-sdk/util-dynamodb";
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
@@ -15,13 +20,18 @@
     let continued = $state(false);
 
     async function fetchGameData() {
-        if (!browser) return;
+        console.log("Fetching game data");
+        if (!browser) {
+            console.log("Not on browser, skipping");
+            return;
+        }
         const searchParam = page.url.searchParams;
         const gameID = searchParam.get("gameID");
         if (!gameID) {
             error = "Missing gameID query parameter";
             return;
         }
+        console.log("Game ID:", gameID);
         const dbparams = {
             TableName: "games_list",
             Key: {
@@ -30,6 +40,7 @@
         };
         const getItemCommand = new GetItemCommand(dbparams);
         if (!SessionState.dynamoDBClient) {
+            console.log("Need to wait for tooling")
             await waitForTooling();
         }
         if (!SessionState.dynamoDBClient) {
@@ -50,6 +61,7 @@
     let loading = $state(true);
     let iframe = $state(null as null | HTMLIFrameElement);
     onMount(async () => {
+        await initializeTooling();
         await fetchGameData();
         if (error || !game) return;
         const r = page.url.searchParams.get("r");
@@ -273,6 +285,10 @@
     <div class="container">
         <h2>Error</h2>
         <p>{error}</p>
+    </div>
+{:else}
+    <div class="container">
+        <h2>Loading...</h2>
     </div>
 {/if}
 

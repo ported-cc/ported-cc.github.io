@@ -104,13 +104,19 @@ export function waitForTooling(): Promise<void> {
 }
 
 export async function findServer(): Promise<Server | null> {
+    console.log("Searching for servers")
     const servers = await findServers();
     State.servers = servers;
+    console.log(`Discovered ${servers.length} servers.`);
     for (let server of State.servers.sort((a, b) => a.priority - b.priority)) {
+        console.log(`Testing server ${server.name} (${server.hostname}) with priority ${server.priority}`);
         await testServer(server);
     }
+
     // Already sorted by priority, so first success is best
-    return SessionState.serverResponses.find(r => r.success)?.server || null;
+    const best = SessionState.serverResponses.find(r => r.success)?.server;
+    console.log("Best server found:", best?.name);
+    return best || null;
 }
 
 export function loadState(state: StateType): StateType {
@@ -124,7 +130,6 @@ export function loadState(state: StateType): StateType {
 }
 
 async function testServer(server: Server): Promise<void> {
-    if (!browser) return;
     if (SessionState.serverResponses.find(r => r.server.hostname === server.hostname)) {
         // Already tested
         return;
@@ -140,6 +145,10 @@ async function testServer(server: Server): Promise<void> {
         const text = await response.text();
         if (text.includes("===NOT_BLOCKED===") && text.includes("SOmehtin23\"")) {
             end = performance.now();
+            if (!browser) {
+                SessionState.serverResponses.push({ server, success: true, time: end - start, reason: "Fetch success" });
+                return;
+            }
             // Further verify by trying to embed the txt in an iframe
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';

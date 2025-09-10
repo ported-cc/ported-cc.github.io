@@ -56,8 +56,11 @@ export const Servers: Server[] = [{
 
 
 export const findServers = async (): Promise<Server[]> => {
+    console.log("Finding servers from servers.txt");
     const url = typeof window !== "undefined" ? `${window.location.origin}/servers.txt` : "https://ccgstatic.com/servers.txt";
+    console.log(`Fetching servers from ${url}`);
     const response = await fetch(url);
+    console.log(`Response status: ${response.status}`);
     if (!response.ok) {
         return Servers;
     }
@@ -79,6 +82,7 @@ ccported.click,Ellay,games/*/
             priority: index
         };
     });
+    console.log(`Found ${servers.length} servers from servers.txt`);
     return servers;
 }
 
