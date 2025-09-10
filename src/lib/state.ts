@@ -92,13 +92,18 @@ export async function initializeTooling() {
     SessionState.dynamoDBClient = dynamoDBClient;
     SessionState.s3Client = s3Client;
 }
-
+export function waitForTooling(): Promise<void> {
+    return new Promise((resolve) => {
+        const checkInterval = setInterval(() => {
+            if (SessionState.awsReady && SessionState.dynamoDBClient && SessionState.s3Client) {
+                clearInterval(checkInterval);
+                resolve();
+            }
+        }, 100);
+    });
+}
 
 export async function findServer(): Promise<Server | null> {
-    if (State.servers && State.servers.length > 0 &&
-        SessionState.serverResponses.length === State.servers.length) {
-        return SessionState.serverResponses.find(r => r.success)?.server || null;
-    }
     const servers = await findServers();
     State.servers = servers;
     for (let server of State.servers.sort((a, b) => a.priority - b.priority)) {

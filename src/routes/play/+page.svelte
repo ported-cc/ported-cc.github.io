@@ -1,6 +1,6 @@
 <script lang="ts">
     import { GetItemCommand } from "@aws-sdk/client-dynamodb";
-    import { initializeTooling, SessionState, State } from "$lib/state.js";
+    import { initializeTooling, SessionState, State, waitForTooling } from "$lib/state.js";
     import { unmarshall } from "@aws-sdk/util-dynamodb";
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
@@ -30,7 +30,7 @@
         };
         const getItemCommand = new GetItemCommand(dbparams);
         if (!SessionState.dynamoDBClient) {
-            await initializeTooling();
+            await waitForTooling();
         }
         if (!SessionState.dynamoDBClient) {
             error = "DynamoDB client not initialized";
@@ -105,8 +105,8 @@
                     if (!iframe) return;
                     const w = iframe.contentWindow;
                     if (!w) return;
-                    if (!SessionState.loggedIn) {
-                        await initializeTooling();
+                    if (!SessionState.awsReady) {
+                        await waitForTooling();
                     }
                     if (SessionState.loggedIn && SessionState.user) {
                         console.log("Iframe loaded. User logged in: true");

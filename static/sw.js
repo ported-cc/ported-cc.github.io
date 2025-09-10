@@ -306,12 +306,12 @@ self.addEventListener('fetch', async event => {
 
     const request = event.request;
     const isCacheable = await isCacheableRequest(request);
+    if (isCacheable) {
+        console.log('[Cacheable] ', request.url);
+    }
     if (!isCacheable) {
-        console.log('Fetch request for:', new URL(request.url).hostname, 'Cacheable:', isCacheable);
-        // Let non-cacheable requests pass through
         return;
     }
-    console.log('Handling fetch for:', request.url, 'Cacheable:', isCacheable);
     event.respondWith(
         (async () => {
             const url = new URL(request.url);
