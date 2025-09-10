@@ -16,7 +16,7 @@ export const SessionState = {
     dynamoDBClient: null as DynamoDBClient | null,
     s3Client: null as S3Client | null,
     devMode: (browser && window.location.hostname === "localhost"),
-    serverResponses: [] as { server: Server; success: boolean; time: number, level: number, reason: string }[],
+    serverResponses: [] as { server: Server; success: boolean; time: number, reason: string }[],
     plays: 0,
     user: null as null | { name: string; email: string; tokens: any } | undefined,
     loggedIn: false
@@ -55,7 +55,7 @@ function createState(initial: StateType): StateType {
 }
 
 export const State = createState({
-    version: "1.0.0",
+    version: "2.0.0.2025.09.09",
     servers: Servers,
     aHosts: AHosts,
     currentServer: Servers[0],
@@ -118,16 +118,16 @@ export function loadState(state: StateType): StateType {
 async function testServer(server: Server): Promise<void> {
     if (!browser) return;
     const start = performance.now();
-    let level = 0;
     const response = await fetch(`https://${server.hostname}/blocked_res.txt`);
     // Increment difficulty of test to track where they fail
-    level++;
     let end = start;
     if (response) end = performance.now();
 
     if (response.ok && response.status === 200) {
+        end = performance.now();
         const text = await response.text();
         if (text.includes("===NOT_BLOCKED===") && text.includes("SOmehtin23\"")) {
+            end = performance.now();
             // Further verify by trying to embed the txt in an iframe
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
@@ -140,26 +140,29 @@ async function testServer(server: Server): Promise<void> {
                         // Verify the message is from the expected origin
                         if (event.origin !== `https://${server.hostname}`) return;
                         const data = event.data;
+                        if (data == "INITIALIZED") {
+                            if (!iframe.contentWindow) {
+                                SessionState.serverResponses.push({ server, success: false, time: end - start, reason: "Embed window not found" });
+                                resolve();
+                                return;
+                            }
+                            iframe.contentWindow.postMessage("CHECK_AVAILABILITY", `https://${server.hostname}`);
+                            return;
+                        }
                         if (data == "===NOT_BLOCKED===") {
-                            SessionState.serverResponses.push({ server, success: true, time: end - start, level, reason: "Embed/Response success" });
+                            SessionState.serverResponses.push({ server, success: true, time: end - start, reason: "Embed/Response success" });
                         } else {
-                            SessionState.serverResponses.push({ server, success: false, time: end - start, level, reason: "Incorrect embed challenge response" });
+                            SessionState.serverResponses.push({ server, success: false, time: end - start, reason: "Incorrect embed challenge response " + data });
                         }
 
                         window.removeEventListener("message", messageHandler);
-                        if (!iframe.contentWindow) {
-                            SessionState.serverResponses.push({ server, success: false, time: end - start, level, reason: "Embed window not found" });
-                            resolve();
-                            return;
-                        }
-                        iframe.contentWindow.postMessage("CHECK_AVAILABILITY", `https://${server.hostname}`);
                         resolve();
                     };
                     window.addEventListener("message", messageHandler);
                 }),
                 new Promise<void>((resolve) => {
                     setTimeout(() => {
-                        SessionState.serverResponses.push({ server, success: false, time: end - start, level, reason: `Timeout waiting for Iframe` });
+                        SessionState.serverResponses.push({ server, success: false, time: end - start, reason: `Timeout waiting for Iframe` });
                         resolve();
                     }, 3000);
                 })
@@ -167,10 +170,10 @@ async function testServer(server: Server): Promise<void> {
             document.body.removeChild(iframe);
 
         } else {
-            SessionState.serverResponses.push({ server, success: false, time: end - start, level, reason: "Content mismatch: " + text });
+            SessionState.serverResponses.push({ server, success: false, time: end - start, reason: "Content mismatch: " + text });
         }
     } else {
-        SessionState.serverResponses.push({ server, success: false, time: end - start, level, reason: `Bad status: ${response.status}` });
+        SessionState.serverResponses.push({ server, success: false, time: end - start, reason: `Bad status: ${response.status}` });
     }
 }
 
