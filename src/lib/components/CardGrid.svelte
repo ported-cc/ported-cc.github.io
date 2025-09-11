@@ -1,5 +1,9 @@
 <script lang="ts">
-    import { decamelize, detectAdBlockEnabled, openGame } from "$lib/helpers.js";
+    import {
+        decamelize,
+        detectAdBlockEnabled,
+        openGame,
+    } from "$lib/helpers.js";
     import { SessionState, State } from "$lib/state.js";
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
@@ -169,6 +173,7 @@
     }
 
     const searchRegex = /[a-z0-9]/i;
+    let adBlock = $state(false);
     onMount(async () => {
         document.addEventListener("keydown", (e) => {
             if (!searchInput) return;
@@ -218,6 +223,7 @@
 
         await detectAdBlockEnabled();
         console.log("AdBlock Enabled:", SessionState.adBlockEnabled);
+        adBlock = SessionState.adBlockEnabled;
         adsEnabled = SessionState.adsEnabled;
         if (adsEnabled) {
             const host = browser ? window.location.hostname : "<SSR_HOST>";
@@ -397,6 +403,15 @@
                     <div class="inxxx agrid grid">
                         <Ad slotId={adSlots.grid} />
                     </div>
+                {/if}
+                {#if !adBlock && !adsEnabled}
+                    {#if (i + 1) % 10 === 0}
+                        <div class="inxxx agrid grid">
+                            <div style="text-align: center; font-size: 0.9rem; color: #555;width:100%;height:100%;display: flex;flex-direction: column;justify-content: center;align-items: center;">
+                                <p>Contact <a href="mailto:ccported@ccported.click">ccported@ccported.click</a> to advertise in this slot</p>
+                            </div>
+                        </div>
+                    {/if}
                 {/if}
             {/each}
         </div>

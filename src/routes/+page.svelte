@@ -34,7 +34,7 @@
     />
 </svelte:head>
 
-{#if isAHost}
+{#if isAHost || devMode}
     <div class="container">
         <div class="background"></div>
         <Navigation />
