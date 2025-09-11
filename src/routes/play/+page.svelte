@@ -12,13 +12,15 @@
     import { page } from "$app/state";
     import { detectAdBlockEnabled, trackClick } from "$lib/helpers.js";
     import { browser } from "$app/environment";
+    import Locked from "$lib/components/Locked.svelte";
 
     let game: Game | null = $state(null);
     let adblock = $state(false);
     let error: string | null = $state(null);
     let withoutSupportingTimer = $state(5);
     let continued = $state(false);
-
+    let isAHost = $state(false);
+    
     async function fetchGameData() {
         console.log("Fetching game data");
         if (!browser) {
@@ -31,7 +33,7 @@
             error = "Missing gameID query parameter";
             return;
         }
-        console.log("Game ID:", gameID);
+        isAHost = State.isAHost();
         const dbparams = {
             TableName: "games_list",
             Key: {
@@ -40,7 +42,7 @@
         };
         const getItemCommand = new GetItemCommand(dbparams);
         if (!SessionState.dynamoDBClient) {
-            console.log("Need to wait for tooling")
+            console.log("Need to wait for tooling");
             await waitForTooling();
         }
         if (!SessionState.dynamoDBClient) {
@@ -252,6 +254,7 @@
         {game ? `Playing ${game.fName}` : "Loading..."} | CCPorted
     </title>
 </svelte:head>
+{#if isAHost }
 {#if adblock && !continued}
     <div class="container">
         <div class="adblock-warning">
@@ -287,9 +290,12 @@
         <p>{error}</p>
     </div>
 {:else}
-    <div class="container">
+    <div class= "container">
         <h2>Loading...</h2>
     </div>
+{/if}
+{:else}
+    <Locked />
 {/if}
 
 <style>

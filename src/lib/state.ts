@@ -6,6 +6,7 @@ import type { Game } from "./types/game.js";
 import { browser } from '$app/environment';
 import { S3Client } from "@aws-sdk/client-s3";
 import { detectAdBlockEnabled } from "./helpers.js";
+import { page } from "$app/state";
 
 export const SessionState = {
     awsReady: false,
@@ -55,14 +56,14 @@ function createState(initial: StateType): StateType {
 }
 
 export const State = createState({
-    version: "2.0.0.2025.09.09",
+    version: "2.0.0.9.11.25",
     servers: Servers,
     aHosts: AHosts,
     currentServer: Servers[0],
     homeView: "grid",
     pinnedGames: [],
     games: [],
-    isAHost: () => (AHosts.some((h): boolean => browser && h.hostname === window.location.hostname)),
+    isAHost: () => (AHosts.some((h): boolean => browser && h.hostname === new URL(page.url).hostname)),
     localPlays: 0
 });
 

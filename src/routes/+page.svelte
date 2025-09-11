@@ -7,18 +7,19 @@
     import type { PageData } from "./$types.js";
     import { browser } from "$app/environment";
     import { page } from "$app/state";
+    import { loadGames } from "$lib/loadCards.js";
 
-    const { data }: { data: PageData } = $props();
-
-    const { games } = data;
     let isAHost = $state(State.isAHost());
     let devMode = $state(true);
     let adblockEnabled = $state(SessionState.adBlockEnabled);
     let adsEnabled = $state(SessionState.adsEnabled);
-    let sResponses = $state(SessionState.serverResponses)
+    let sResponses = $state(SessionState.serverResponses);
+    let games = $state(State.games);
     onMount(async () => {
         await initializeTooling();
         isAHost = State.isAHost();
+
+        await loadGames();
         devMode = SessionState.devMode;
         adblockEnabled = SessionState.adBlockEnabled;
         adsEnabled = SessionState.adsEnabled;
@@ -33,7 +34,7 @@
     />
 </svelte:head>
 
-{#if isAHost || devMode}
+{#if isAHost}
     <div class="container">
         <div class="background"></div>
         <Navigation />
@@ -69,7 +70,7 @@
     </p>
     <div class="information">
         <!-- none of this information is statefull, therefore none of it will update. this is intended behavior -->
-        <b>Running Information:</b><br>
+        <b>Running Information:</b><br />
         Browser: {browser ? navigator.userAgent : "<SSR_HOST>"}<br />
         Host: {browser ? window.location.hostname : "<SSR_HOST>"}<br />
         DevMode: {SessionState.devMode}<br />
@@ -77,41 +78,63 @@
         Ads Enabled: {adsEnabled}<br />
         Current Server: {State.currentServer.name} (Loaded {State.servers
             .length})<br />
-        <table style="width:100%; margin: 10px 0; border-collapse: collapse; font-size: 12px;">
+        <table
+            style="width:100%; margin: 10px 0; border-collapse: collapse; font-size: 12px;"
+        >
             <thead>
-            <tr>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Server</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Status</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Ping (ms)</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Check</th>
-            </tr>
-            </thead>    
-            <tbody>
-            {#each sResponses as r}
                 <tr>
-                <td>{r.server.name}</td>
-                <td>{r.success ? "Success" : "Failed"}</td>
-                <td>{r.time.toFixed(2)}</td>
-                <td>{r.reason}</td>
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Server</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Status</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Ping (ms)</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Check</th
+                    >
                 </tr>
-            {/each}
+            </thead>
+            <tbody>
+                {#each sResponses as r}
+                    <tr>
+                        <td>{r.server.name}</td>
+                        <td>{r.success ? "Success" : "Failed"}</td>
+                        <td>{r.time.toFixed(2)}</td>
+                        <td>{r.reason}</td>
+                    </tr>
+                {/each}
             </tbody>
         </table>
         AHost: {State.isAHost()} (Loaded {State.aHosts.length})<br />
-        <table style="width:100%; margin: 10px 0; border-collapse: collapse; font-size: 12px;">
+        <table
+            style="width:100%; margin: 10px 0; border-collapse: collapse; font-size: 12px;"
+        >
             <thead>
-            <tr>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">AHost Hostname</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">ACode</th>
-            </tr>
+                <tr>
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >AHost Hostname</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >ACode</th
+                    >
+                </tr>
             </thead>
             <tbody>
-            {#each State.aHosts as h}
-                <tr>
-                <td>{h.hostname}{(h.hostname && browser && h.hostname == page.url.hostname) ? " (Active)" : " (Inactive)"}</td>
-                <td>{h.acode}</td>
-                </tr>
-            {/each}
+                {#each State.aHosts as h}
+                    <tr>
+                        <td
+                            >{h.hostname}{h.hostname &&
+                            browser &&
+                            h.hostname == page.url.hostname
+                                ? " (Active)"
+                                : " (Inactive)"}</td
+                        >
+                        <td>{h.acode}</td>
+                    </tr>
+                {/each}
             </tbody>
         </table>
         <br />
@@ -120,22 +143,41 @@
         Version: {State.version}<br />
         Logged In: {SessionState.loggedIn}<br />
         SSR: {SessionState.ssr}<br />
-        <table style="width:100%; margin: 10px 0; border-collapse: collapse; font-size: 12px;">
+        <table
+            style="width:100%; margin: 10px 0; border-collapse: collapse; font-size: 12px;"
+        >
             <thead>
-            <tr>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">AWS Ready</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Identity ID</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Access Key ID</th>
-                <th style="border-bottom: 1px solid #ccc; text-align: left;">Credentials Expires</th>
-            </tr>
+                <tr>
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >AWS Ready</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Identity ID</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Access Key ID</th
+                    >
+                    <th style="border-bottom: 1px solid #ccc; text-align: left;"
+                        >Credentials Expires</th
+                    >
+                </tr>
             </thead>
             <tbody>
-            <tr>
-                <td>{SessionState.awsReady ? "Yes" : "No"}</td>
-                <td title={SessionState.credentials?.identityId || "-"}>{SessionState.credentials?.identityId.slice(0, 10) + "..." || "-"}</td>
-                <td title={SessionState.credentials?.accessKeyId || "-"}>{SessionState.credentials?.accessKeyId.slice(0, 6) + "..." || "-"}</td>
-                <td>{SessionState.credentials?.expiration?.toLocaleTimeString() || "-"}</td>
-            </tr>
+                <tr>
+                    <td>{SessionState.awsReady ? "Yes" : "No"}</td>
+                    <td title={SessionState.credentials?.identityId || "-"}
+                        >{SessionState.credentials?.identityId.slice(0, 10) +
+                            "..." || "-"}</td
+                    >
+                    <td title={SessionState.credentials?.accessKeyId || "-"}
+                        >{SessionState.credentials?.accessKeyId.slice(0, 6) +
+                            "..." || "-"}</td
+                    >
+                    <td
+                        >{SessionState.credentials?.expiration?.toLocaleTimeString() ||
+                            "-"}</td
+                    >
+                </tr>
             </tbody>
         </table>
         Plays: {SessionState.plays.toLocaleString()} ({State.localPlays.toLocaleString()}
@@ -159,5 +201,4 @@
         text-align: left;
         font-family: "Courier New", Courier, monospace;
     }
-
 </style>

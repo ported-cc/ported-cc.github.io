@@ -1,5 +1,5 @@
 import { ScanCommand } from "@aws-sdk/client-dynamodb";
-import { SessionState } from "./state.js";
+import { SessionState, State } from "./state.js";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import type { Game } from "./types/game.js";
 
@@ -22,11 +22,10 @@ export async function loadGames(): Promise<Game[]> {
 
     const response = await SessionState.dynamoDBClient.send(command);
     const items = response.Items ? response.Items.map(item => unmarshall(item)) : [];
-
-    const games: Game[] = [];
+    State.games = [];
     for (const item of items) {
         if (item.gameID && item.fName && item.thumbPath) {
-            games.push({
+            State.games.push({
                 gameID: item.gameID,
                 thumbPath: item.thumbPath,
                 fName: item.fName,
@@ -38,6 +37,7 @@ export async function loadGames(): Promise<Game[]> {
             });
         }
     }
-    SessionState.plays = games.reduce((a, v) => a + v.clicks, 0);
-    return games;
+    SessionState.plays = State.games.reduce((a, v) => a + v.clicks, 0);
+    State.games = State.games;
+    return State.games;
 }
