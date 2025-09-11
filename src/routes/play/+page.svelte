@@ -17,10 +17,10 @@
     let game: Game | null = $state(null);
     let adblock = $state(false);
     let error: string | null = $state(null);
-    let withoutSupportingTimer = $state(5);
+    let withoutSupportingTimer = $state(15);
     let continued = $state(false);
-    let isAHost = $state(false);
-    
+    let isAHost = $state(true);
+
     async function fetchGameData() {
         console.log("Fetching game data");
         if (!browser) {
@@ -254,46 +254,49 @@
         {game ? `Playing ${game.fName}` : "Loading..."} | CCPorted
     </title>
 </svelte:head>
-{#if isAHost }
-{#if adblock && !continued}
-    <div class="container">
-        <div class="adblock-warning">
-            <h2>Ad Blocker Detected</h2>
-            <p>
-                CCPorted relies on ads to keep the lights on. Please consider
-                disabling your ad blocker for this site.
-            </p>
-            <button onclick={() => location.reload()}
-                >I've disabled my ad blocker, reload the game</button
-            >
-            {#if withoutSupportingTimer > 0}
-                <p>You can continue in {withoutSupportingTimer} seconds...</p>
-            {:else}
-                <button onclick={() => (continued = true)}
-                    >Continue without supporting us</button
+{#if isAHost}
+    {#if adblock && !continued}
+        <div class="container">
+            <div class="adblock-warning">
+                <h2>Ad Blocker Detected</h2>
+                <p>
+                    CCPorted relies on ads to keep the lights on. Please
+                    consider disabling your ad blocker for this site.
+                </p>
+                <p>Only 5% of users have disabled their ad blocker. Be part of the solution!</p>
+                <button onclick={() => location.reload()}
+                    >I've disabled my ad blocker, reload the game</button
                 >
-            {/if}
+                {#if withoutSupportingTimer > 0}
+                    <p>
+                        You can continue in {withoutSupportingTimer} seconds...
+                    </p>
+                {:else}
+                    <button onclick={() => (continued = true)}
+                        >Continue without supporting us</button
+                    >
+                {/if}
+            </div>
         </div>
-    </div>
-{/if}
-{#if game}
-    <iframe
-        src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}/index.html`}
-        frameborder="0"
-        allowfullscreen
-        bind:this={iframe}
-        title={`Playing ${game.fName}`}
-    ></iframe>
-{:else if error}
-    <div class="container">
-        <h2>Error</h2>
-        <p>{error}</p>
-    </div>
-{:else}
-    <div class= "container">
-        <h2>Loading...</h2>
-    </div>
-{/if}
+    {/if}
+    {#if game}
+        <iframe
+            src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}/index.html`}
+            frameborder="0"
+            allowfullscreen
+            bind:this={iframe}
+            title={`Playing ${game.fName}`}
+        ></iframe>
+    {:else if error}
+        <div class="container">
+            <h2>Error</h2>
+            <p>{error}</p>
+        </div>
+    {:else}
+        <div class="container">
+            <h2>Loading...</h2>
+        </div>
+    {/if}
 {:else}
     <Locked />
 {/if}
