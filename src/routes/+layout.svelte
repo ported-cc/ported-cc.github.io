@@ -11,7 +11,7 @@
     let defaultGA4Code = "G-DJDL65P9Y4";
 
     let idToUse = $state(defaultGA4Code);
-    let useGA4 = $state(true);
+    let useGA4 = $state(false);
     if (browser) {
         let hostname = window.location.hostname;
         console.log("[R][LAYOUT][BASE] Hostname:", hostname);
@@ -19,9 +19,13 @@
             const code = ga4Codes[hostname as keyof typeof ga4Codes];
             if (code) {
                 idToUse = code;
+                useGA4 = true;
             } else {
                 useGA4 = false;
             }
+        } else{
+            idToUse = defaultGA4Code;
+            useGA4 = true;
         }
     }
 </script>
