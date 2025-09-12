@@ -39,7 +39,9 @@ type StateType = {
 function saveState() {
     // Skip on server-side rendering
     if (SessionState.ssr) return;
-    const { servers, aHosts, isAHost, ...serializable } = State;
+
+    // Things we don't want to save
+    const { servers, aHosts, version, games, isAHost, ...serializable } = State;
     localStorage.setItem("ccported_state", JSON.stringify(serializable));
 }
 
@@ -155,7 +157,7 @@ async function testServer(server: Server): Promise<void> {
             iframe.style.display = 'none';
             iframe.src = `https://${server.hostname}/test_availability.html`;
             document.body.appendChild(iframe);
-
+            let iframeLoaded = false;
             await Promise.race([
                 new Promise<void>((resolve) => {
                     const messageHandler = (event: MessageEvent) => {
@@ -178,12 +180,14 @@ async function testServer(server: Server): Promise<void> {
                         }
 
                         window.removeEventListener("message", messageHandler);
+                        iframeLoaded = true;
                         resolve();
                     };
                     window.addEventListener("message", messageHandler);
                 }),
                 new Promise<void>((resolve) => {
                     setTimeout(() => {
+                        if (iframeLoaded) return; //Got response already
                         SessionState.serverResponses.push({ server, success: false, time: end - start, reason: `Timeout waiting for Iframe` });
                         resolve();
                     }, 3000);
