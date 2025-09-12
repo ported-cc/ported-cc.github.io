@@ -107,7 +107,6 @@ self.addEventListener('install', event => {
             // Load servers list
             updateAllowedDomains()
         ]).then(() => {
-            console.log('Service worker installation completed');
             return self.skipWaiting();
         }).catch(error => {
             console.error('Service worker installation failed:', error);
@@ -225,7 +224,6 @@ async function networkFirstStrategy(request) {
         throw new Error('Invalid network response');
 
     } catch (error) {
-        console.log('Network failed, trying cache for:', request.url, error.message);
 
         // Fall back to cache
         const cachedResponse = await cache.match(request);
@@ -262,7 +260,6 @@ async function cacheFirstStrategy(request) {
 
     // Fetch from network
     try {
-        console.log('Fetching and caching game asset:', request.url);
 
         const url = new URL(request.url);
         const fetchOptions = {};
@@ -306,9 +303,6 @@ self.addEventListener('fetch', async event => {
 
     const request = event.request;
     const isCacheable = await isCacheableRequest(request);
-    if (isCacheable) {
-        console.log('[Cacheable] ', request.url);
-    }
     if (!isCacheable) {
         return;
     }

@@ -70,7 +70,10 @@ export const State = createState({
 });
 
 
+export let toolingInitialized = false;
+
 export async function initializeTooling() {
+    if (toolingInitialized) return;
     const server = await findServer();
     if (!server) {
         console.error("No available servers found.");
@@ -94,6 +97,7 @@ export async function initializeTooling() {
     SessionState.awsReady = true;
     SessionState.dynamoDBClient = dynamoDBClient;
     SessionState.s3Client = s3Client;
+    toolingInitialized = true;
 }
 export function waitForTooling(): Promise<void> {
     return new Promise((resolve) => {

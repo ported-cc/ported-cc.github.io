@@ -20,7 +20,7 @@
         await initializeTooling();
         isAHost = State.isAHost();
 
-        await loadGames();
+        games = await loadGames();
         devMode = SessionState.devMode;
         adblockEnabled = SessionState.adBlockEnabled;
         adsEnabled = SessionState.adsEnabled;

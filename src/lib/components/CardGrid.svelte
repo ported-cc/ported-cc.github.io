@@ -81,6 +81,10 @@
                     return bClicks - aClicks;
                 });
         }
+        console.log(
+            `Sorted games by ${sortType}:`,
+            sorted.length
+        )
         return sorted;
     }
 
