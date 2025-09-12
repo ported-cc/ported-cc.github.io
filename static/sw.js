@@ -2,8 +2,7 @@
 const CACHE_NAME = 'ccported-cache-v2';
 
 // Assets to cache immediately on service worker installation
-const PRECACHE_ASSETS = [
-];
+const PRECACHE_ASSETS = [];
 
 // Static allowed domains (fallback)
 let ALLOWED_DOMAINS = [
@@ -193,7 +192,6 @@ function isValidResponse(response) {
 // Network-first strategy for HTML, CSS, JS
 async function networkFirstStrategy(request) {
     const cache = await caches.open(CACHE_NAME);
-
     try {
 
         // Configure fetch options for cross-origin requests
@@ -250,6 +248,7 @@ async function networkFirstStrategy(request) {
 
 // Cache-first strategy for large game files
 async function cacheFirstStrategy(request) {
+    console.log("[SW][CACHE FIRST]", request.url);
     const cache = await caches.open(CACHE_NAME);
 
     // Try cache first
@@ -290,8 +289,8 @@ function getFileType(url) {
     if (pathname.endsWith('.html')) return 'html';
     if (pathname.endsWith('.css')) return 'css';
     if (pathname.endsWith('.js')) return 'js';
-    if (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(pathname)) return 'image';
-    if (/\.(data|wasm|bundle|unity3d|pak|bin)$/i.test(pathname)) return 'game';
+    if (/\".png\"|\".jpg\"|\".jpeg\"|\".gif\"|\".webp\"|\".svg$/i.test(pathname)) return 'image';
+    if (/\".data\"|\".wasm\"|\".bundle\"|\".unity3d\"|\".pak\"|\".bin$/i.test(pathname)) return 'game';
 
     return 'other';
 }
@@ -364,28 +363,44 @@ async function cacheOnlyForImages(request) {
 
 // Listen for messages from the main thread
 self.addEventListener('message', event => {
+    const sendMessage = (message) => {
+        if (event.ports[0]) {
+            event.ports[0].postMessage(message);
+        } else {
+            self.clients.matchAll({
+                includeUncontrolled: true,
+                type: 'window',
+            }).then((clients) => {
+                if (clients && clients.length) {
+                    clients.forEach(client => client.postMessage(message));
+                }
+            });
+        }
+    };
+
     if (event.data && event.data.action === 'CLEAR_CACHE') {
         caches.delete(CACHE_NAME).then(() => {
-            // Also clear servers cache
+            console.log(`[SW][CLEAR_CACHE] Cache cleared`);
             serversCache = { domains: [], lastUpdated: 0, updateInterval: 5 * 60 * 1000 };
-            event.ports[0].postMessage({ status: 'Cache cleared' });
+            sendMessage({ type: 'CACHE_CLEARED', status: 'Cache cleared successfully by service worker' });
         });
     }
 
     if (event.data && event.data.action === 'FORCE_REFRESH') {
+        console.log(`[SW][FORCE_REFRESH] Force refreshing ${event.data.url}`);
         const url = event.data.url;
         caches.open(CACHE_NAME).then(cache => {
             cache.delete(url).then(() => {
-                event.ports[0].postMessage({ status: `Cache cleared for ${url}` });
+                sendMessage({ status: `Cache cleared for ${url}` });
             });
         });
     }
 
     if (event.data && event.data.action === 'UPDATE_SERVERS') {
-        // Force update of allowed domains
+        console.log(`[SW][UPDATE_SERVERS] Updating servers list`);
         serversCache.lastUpdated = 0;
         updateAllowedDomains().then(() => {
-            event.ports[0].postMessage({ status: 'Servers list updated' });
+            sendMessage({ status: 'Servers list updated' });
         });
     }
 });

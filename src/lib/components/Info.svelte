@@ -7,11 +7,24 @@
     let stateFulState = $state(State);
     let stateFulSessionState = $state(SessionState);
     let plays = $state(SessionState.plays);
+    let version = $state("Fetching...")
     onMount(async () => {
         await waitForTooling();
         stateFulState = State;
         stateFulSessionState = SessionState;
         plays = SessionState.plays;
+        if (browser) {
+            try {
+                const res = await fetch("/version.txt", { method: "GET" });
+                if (res.ok) {
+                    version = (await res.text()).trim();
+                } else {
+                    version = "Error fetching version";
+                }
+            } catch (e) {
+                version = "Error fetching version";
+            }
+        }
     })
 </script>
 
@@ -86,7 +99,7 @@
     <br />
     Games Loaded: {stateFulState.games.length} ({stateFulState.pinnedGames
         .length} pinned) - rendered {stateFulState.homeView}<br />
-    Version: {stateFulState.version}<br />
+    Version: {version}<br />
     Logged In: {stateFulSessionState.loggedIn}<br />
     SSR: {stateFulSessionState.ssr}<br />
     <table

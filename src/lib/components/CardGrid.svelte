@@ -4,18 +4,17 @@
         detectAdBlockEnabled,
         openGame,
     } from "$lib/helpers.js";
-    import { SessionState, State } from "$lib/state.js";
+    import { initializeTooling, SessionState, State } from "$lib/state.js";
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
     import GameCard from "./GameCard.svelte";
     import Ad from "./Ad.svelte";
     import { findAHosts } from "$lib/types/servers.js";
     import { browser } from "$app/environment";
+    import { loadGames } from "$lib/loadCards.js";
 
-    const props: { games: Game[] } = $props();
     let searchIsOpen = $state(false);
-    const { games } = props;
-
+    let games = $state<Game[]>([]);
     let adsEnabled = $state(false);
     let adSlots = $state<{ sidebar: string; grid: string } | null>(null);
 
@@ -82,9 +81,8 @@
                 });
         }
         console.log(
-            `Sorted games by ${sortType}:`,
-            sorted.length
-        )
+            `[R][CardGrid][getSortedGames] Sorted games by ${sortType}, found ${sorted.length} games.`,
+        );
         return sorted;
     }
 
@@ -179,6 +177,10 @@
     const searchRegex = /[a-z0-9]/i;
     let adBlock = $state(false);
     onMount(async () => {
+        await initializeTooling();
+
+        games = await loadGames();
+
         document.addEventListener("keydown", (e) => {
             if (!searchInput) return;
             // Ignore keyboard shortcuts, special keys, non a-z0-9, or backspace, enter, delete, etc.
@@ -226,7 +228,7 @@
         if (SessionState.ssr) return;
 
         await detectAdBlockEnabled();
-        console.log("AdBlock Enabled:", SessionState.adBlockEnabled);
+        console.log("[R][CardGrid][Mount] AdBlock Enabled:", SessionState.adBlockEnabled);
         adBlock = SessionState.adBlockEnabled;
         adsEnabled = SessionState.adsEnabled;
         if (adsEnabled) {
@@ -395,6 +397,11 @@
             </button>
         </div>
         <div class="card-grid {State.homeView}">
+            {#if games.length === 0}
+                {#each Array(12) as _, i}
+                    <div class="load-shimmer">&nbsp;</div>
+                {/each}
+            {/if}
             {#each getSortedGames() as game, i (game.gameID)}
                 <GameCard
                     {game}
@@ -411,8 +418,15 @@
                 {#if !adBlock && !adsEnabled}
                     {#if (i + 1) % 10 === 0}
                         <div class="inxxx agrid grid">
-                            <div style="text-align: center; font-size: 0.9rem; color: #555;width:100%;height:100%;display: flex;flex-direction: column;justify-content: center;align-items: center;">
-                                <p>Contact <a href="mailto:ccported@ccported.click">ccported@ccported.click</a> to advertise in this slot</p>
+                            <div
+                                style="text-align: center; font-size: 0.9rem; color: #555;width:100%;height:100%;display: flex;flex-direction: column;justify-content: center;align-items: center;"
+                            >
+                                <p>
+                                    Contact <a
+                                        href="mailto:ccported@ccported.click"
+                                        >ccported@ccported.click</a
+                                    > to advertise in this slot
+                                </p>
                             </div>
                         </div>
                     {/if}
@@ -430,6 +444,31 @@
 </div>
 
 <style>
+    .load-shimmer {
+        width: 90%;
+        height: 280px;
+        border-radius: 16px;
+        border: 1px solid #e0e0e0;
+        background: linear-gradient(
+            90deg,
+            #f0f0f0 0%,
+            #e0e0e0 50%,
+            #f0f0f0 100%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite linear;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    @keyframes shimmer {
+        0% {
+            background-position: 200% 0;
+        }
+        100% {
+            background-position: -200% 0;
+        }
+    }
     .container {
         width: 100%;
         box-sizing: border-box;

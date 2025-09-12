@@ -23,12 +23,12 @@
                     continue;
                 }
             } catch (err) {
-                console.log(err);
+                console.log(`[R][EMULATOR][findDataCDN] Error (soft): ${err}`);
                 // ^ super soft error handling
             }
         }
         alert(
-            "All data delivery networks seem to be blocked. This will not work. If you think this is an error contact me though the instagram, discord, or email me at sojscoder@gmail.com",
+            "All data delivery networks seem to be blocked. This will not work. If you think this is an error contact me though the instagram, discord, or email me at sojscoder@gmail.com or ccported@ccported.click",
         );
     }
 

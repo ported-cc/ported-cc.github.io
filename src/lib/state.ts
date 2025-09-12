@@ -25,7 +25,6 @@ export const SessionState = {
 
 
 type StateType = {
-    version: string;
     servers: typeof Servers;
     aHosts: typeof AHosts;
     currentServer: Server;
@@ -41,7 +40,7 @@ function saveState() {
     if (SessionState.ssr) return;
 
     // Things we don't want to save
-    const { servers, aHosts, version, games, isAHost, ...serializable } = State;
+    const { servers, aHosts, games, isAHost, ...serializable } = State;
     localStorage.setItem("ccported_state", JSON.stringify(serializable));
 }
 
@@ -58,7 +57,6 @@ function createState(initial: StateType): StateType {
 }
 
 export const State = createState({
-    version: "2.0.0.9.11.25",
     servers: Servers,
     aHosts: AHosts,
     currentServer: Servers[0],
@@ -71,9 +69,15 @@ export const State = createState({
 
 
 export let toolingInitialized = false;
-
+export let initializingTooling = false;
 export async function initializeTooling() {
     if (toolingInitialized) return;
+    if (initializingTooling) {
+        // Wait for existing initialization to complete
+        await waitForTooling();
+        return;
+    }
+    initializingTooling = true;
     const server = await findServer();
     if (!server) {
         console.error("No available servers found.");
@@ -106,23 +110,23 @@ export function waitForTooling(): Promise<void> {
                 clearInterval(checkInterval);
                 resolve();
             }
-        }, 100);
+        }, 50);
     });
 }
 
 export async function findServer(): Promise<Server | null> {
-    console.log("Searching for servers")
+    console.log("[STATE][findServer] Searching for servers")
     const servers = await findServers();
     State.servers = servers;
-    console.log(`Discovered ${servers.length} servers.`);
+    console.log(`[STATE][findServer] Discovered ${servers.length} servers.`);
     for (let server of State.servers.sort((a, b) => a.priority - b.priority)) {
-        console.log(`Testing server ${server.name} (${server.hostname}) with priority ${server.priority}`);
+        console.log(`[STATE][findServer] Testing server ${server.name} (${server.hostname}) with priority ${server.priority}`);
         await testServer(server);
     }
 
     // Already sorted by priority, so first success is best
     const best = SessionState.serverResponses.find(r => r.success)?.server;
-    console.log("Best server found:", best?.name);
+    console.log("[STATE][findServer] Best server found:", best?.name);
     return best || null;
 }
 

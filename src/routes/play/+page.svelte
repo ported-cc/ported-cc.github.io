@@ -22,9 +22,9 @@
     let isAHost = $state(true);
 
     async function fetchGameData() {
-        console.log("Fetching game data");
+        console.log("[R][PLAY][fetchGameData] Fetching game data");
         if (!browser) {
-            console.log("Not on browser, skipping");
+            console.log("[R][PLAY][fetchGameData] Not on browser, skipping");
             return;
         }
         const searchParam = page.url.searchParams;
@@ -42,7 +42,7 @@
         };
         const getItemCommand = new GetItemCommand(dbparams);
         if (!SessionState.dynamoDBClient) {
-            console.log("Need to wait for tooling");
+            console.log("[R][PLAY][fetchGameData] Need to wait for tooling");
             await waitForTooling();
         }
         if (!SessionState.dynamoDBClient) {
@@ -58,7 +58,7 @@
         const unmarshalled = unmarshall(response.Item) as Game;
         game = unmarshalled;
         adblock = await detectAdBlockEnabled();
-        console.log(adblock);
+        console.log("[R][PLAY][fetchGameData] Adblock detected:", adblock);
     }
     let loading = $state(true);
     let iframe = $state(null as null | HTMLIFrameElement);
@@ -98,7 +98,7 @@
         index: number;
         name: string;
     }) {
-        console.log("UPDATING TO", server);
+        console.log("[R][PLAY][updateIframe] Updating to", server);
         if (server.name == State.currentServer.name) return;
         if (!iframe || !game || !browser) return;
         iframe.src = `https://${server.address.split(",")[0]}/${server.path}${game.gameID}/index.html`;
@@ -123,7 +123,7 @@
                         await waitForTooling();
                     }
                     if (SessionState.loggedIn && SessionState.user) {
-                        console.log("Iframe loaded. User logged in: true");
+                        console.log("[R][PLAY][updateIframe] Iframe loaded. User logged in: true");
                         try {
                             const tokens = SessionState.user.tokens || {};
                             w.postMessage({
@@ -134,7 +134,7 @@
                             console.error("Error sending tokens:", err);
                         }
                     } else {
-                        console.log("Iframe loaded. User not logged in.");
+                        console.log("[R][PLAY][updateIframe] Iframe loaded. User not logged in.");
                     }
                     iframe.focus();
                 });
@@ -144,7 +144,6 @@
             if (browser) {
                 window.addEventListener("message", async (event) => {
                     try {
-                        console.log(event);
                         if (!event.data.fromInternal) return;
                         const allowedOrigins = State.servers.map(
                             (s) => `https://${s.hostname}`,
@@ -156,7 +155,7 @@
                             ].includes(event.origin)
                         ) {
                             console.warn(
-                                `Rejected message from unauthorized origin: ${event.origin}`,
+                                `[R][PLAY][updateIframe][message] Rejected message from unauthorized origin: ${event.origin}`,
                             );
                             return;
                         }
@@ -170,7 +169,7 @@
                             };
 
                             if (SessionState.loggedIn && SessionState.user) {
-                                console.log("User logged in, sending tokens");
+                                console.log("[R][PLAY][updateIframe][message-GET_TOKENS] User logged in, sending tokens");
                                 try {
                                     const tokens =
                                         SessionState.user.tokens || {};
@@ -212,7 +211,7 @@
                             }
 
                             // Send response back to the exact source iframe
-                            console.log(response, event.origin);
+                            console.log("[R][PLAY][updateIframe][message-GET_TOKENS] Sending response:", response);
                             if (!event.source) return;
                             event.source.postMessage(response, {
                                 targetOrigin: event.origin,

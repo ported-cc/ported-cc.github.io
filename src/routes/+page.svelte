@@ -5,22 +5,16 @@
     import Info from "$lib/components/Info.svelte";
     import { initializeTooling, SessionState, State } from "$lib/state.js";
     import { onMount } from "svelte";
-    import type { PageData } from "./$types.js";
-    import { browser } from "$app/environment";
-    import { page } from "$app/state";
     import { loadGames } from "$lib/loadCards.js";
 
     let isAHost = $state(State.isAHost());
     let devMode = $state(true);
     let adblockEnabled = $state(SessionState.adBlockEnabled);
     let adsEnabled = $state(SessionState.adsEnabled);
-    let sResponses = $state(SessionState.serverResponses);
-    let games = $state(State.games);
     onMount(async () => {
         await initializeTooling();
         isAHost = State.isAHost();
 
-        games = await loadGames();
         devMode = SessionState.devMode;
         adblockEnabled = SessionState.adBlockEnabled;
         adsEnabled = SessionState.adsEnabled;
@@ -39,7 +33,7 @@
     <div class="container">
         <div class="background"></div>
         <Navigation />
-        <CardGrid {games} />
+        <CardGrid />
     </div>
 {:else}
     <Locked />
