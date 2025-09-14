@@ -169,7 +169,6 @@ async function isCacheableRequest(request) {
 
     // Cache based on file extensions
     const cacheableExtensions = [
-        '.html', '.js', '.css', '.json',
         '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
         '.woff', '.woff2', '.ttf', '.otf',
         '.mp3', '.ogg', '.wav',
