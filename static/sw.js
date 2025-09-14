@@ -222,7 +222,6 @@ async function networkFirstStrategy(request) {
         throw new Error('Invalid network response');
 
     } catch (error) {
-
         // Fall back to cache
         const cachedResponse = await cache.match(request);
         if (cachedResponse) {

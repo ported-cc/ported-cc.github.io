@@ -246,6 +246,7 @@
             }
         }
     });
+
 </script>
 
 <svelte:head>
@@ -253,7 +254,7 @@
         {game ? `Playing ${game.fName}` : "Loading..."} | CCPorted
     </title>
 </svelte:head>
-{#if isAHost}
+{#if isAHost || SessionState.devMode}
     {#if adblock && !continued}
         <div class="container">
             <div class="adblock-warning">
