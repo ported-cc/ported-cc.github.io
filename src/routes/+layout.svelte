@@ -6,7 +6,7 @@
 
     let ga4Codes = {
         "ccported.click": "G-ER9VZ5QL8K",
-        "ccported.github.io": "G-ER9VZ5QL8K",
+        "ccported.github.io": "G-NYC0Q0VKPP",
         localhost: null,
     };
     let defaultGA4Code = "G-DJDL65P9Y4";
