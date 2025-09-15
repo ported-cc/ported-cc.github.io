@@ -261,40 +261,59 @@
     });
 
     function play() {
+        console.log("[R][PLAY][play] Play button clicked");
+        console.log(
+            "[R][PLAY][play] Dev mode:",
+            localStorage.getItem("devMode"),
+        );
         if (localStorage.getItem("devMode") == "true") {
             const options = {
                 apiKey: "193de488-c5ba-461a-8ccf-8309cbc721a2", // Replace with your actual API key
                 injectionElementId: "ad-container", // This is the ID of the div from step 2.
                 adStatusCallbackFn: (
                     status:
-                        | "allAdsCompleted"
-                        | "click"
-                        | "complete"
+                        | "allAdsCompleted" // finish reason
+                        | "click" // finish reason
+                        | "complete" // finish reason
                         | "firstQuartile"
-                        | "loaded"
+                        | "loaded" 
                         | "midpoint"
                         | "paused"
                         | "started"
                         | "thirdQuartile"
-                        | "skipped"
-                        | "manuallyEnded"
-                        | "thankYouModalClosed"
-                        | "consentDeclined",
+                        | "skipped" // finish reason
+                        | "manuallyEnded" // finish reason
+                        | "thankYouModalClosed" // finish reason
+                        | "consentDeclined"
                 ) => {
                     // This is how you can listen for ad statuses (more in Step 4)
                     console.log("OUTSIDE Ad status: ", status);
-                    continued = true;
+                    const finishReasons = [
+                        "allAdsCompleted",
+                        "click",
+                        "complete",
+                        "skipped",
+                        "manuallyEnded",
+                        "thankYouModalClosed",
+                    ]
+                    if (finishReasons.includes(status)) {
+                        adContinued = true;
+                    }
+                    if (status === "consentDeclined") {
+                        alert("Please consent to ads to play the game.");
+                        location.reload();
+                    }
                 },
                 adErrorCallbackFn: (error: any) => {
                     // This is how you can listen for errors (more in Step 4)
                     console.log("Error: ", error.getError().data);
-                    continued = true;
+                    adContinued = true;
                 },
             };
 
             (window as any).initializeAndOpenPlayer(options);
         } else {
-            continued = true;
+            adContinued = true;
         }
     }
 </script>
@@ -337,7 +356,21 @@
             </div>
         </div>
     {/if}
-    {#if game && adContinued}
+    {#if game}
+        {#if !adContinued}
+            <div class="play">
+                {#if game}
+                    <h2>{game.fName}</h2>
+                    <p>{game.description}</p>
+                    <img
+                        alt={`Cover art for ${game.fName}`}
+                        src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}${game.thumbPath}`}
+                    />
+                {/if}
+                <button onclick={play}>Play Game</button>
+            </div>
+            <div id="ad-container"></div>
+        {/if}
         <iframe
             src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}/index.html`}
             frameborder="0"
@@ -354,19 +387,6 @@
         <div class="container">
             <h2>Loading...</h2>
         </div>
-    {:else}
-        <div class="play">
-            {#if game}
-                <h2>{game.fName}</h2>
-                <p>{game.description}</p>
-                <img
-                    alt={`Cover art for ${game.fName}`}
-                    src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}${game.thumbPath}`}
-                />
-            {/if}
-            <button onclick={play}>Play Game</button>
-        </div>
-        <div id="ad-container"></div>
     {/if}
 {:else}
     <Locked />
@@ -379,6 +399,15 @@
         align-items: center;
         height: 100vh;
         flex-direction: column;
+        background-color: #f9f9f9;
+        z-index: 1000;
+        position: relative;
+        padding: 20px;
+        box-sizing: border-box;
+        text-align: center;
+        font-family: Arial, sans-serif;
+        top: 0;
+        left: 0;
     }
     .play img {
         max-width: 400px;
