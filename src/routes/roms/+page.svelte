@@ -1,8 +1,11 @@
 <script lang="ts">
+    import { browser } from "$app/environment";
+    import Ad from "$lib/components/Ad.svelte";
     import Navigation from "$lib/components/Navigation.svelte";
-    import { capitalizeWords } from "$lib/helpers.js";
+    import { capitalizeWords, detectAdBlockEnabled } from "$lib/helpers.js";
     import { initializeTooling, SessionState } from "$lib/state.js";
     import type { ROM } from "$lib/types/game.js";
+    import { findAHosts } from "$lib/types/servers.js";
     import { ListObjectsV2Command } from "@aws-sdk/client-s3";
     import { onMount } from "svelte";
 
@@ -21,6 +24,20 @@
             .split(/\s+/);
     }
 
+    let adSlots = $state<{ big: string; small: string } | null>(null);
+    let adBlock = $state(false);
+    let adsEnabled = $state(false);
+
+    const adSlotConfig = {
+        "ccported.github.io": {
+            big: "c024666e-e810-47df-833e-b260321b4d84",
+            small: "c2522ff2-7549-433b-a689-0cd63517722c",
+        },
+        "ccported.click": {
+            big: "dfa19ddf-2c4c-42ac-8056-3419d7b2ecf3",
+            small: "ce76eb8c-b859-4060-90bb-ba1089d73e67",
+        },
+    };
     async function listRoms() {
         if (!SessionState.s3Client) {
             await initializeTooling();
@@ -68,10 +85,47 @@
         }
     }
 
-    onMount(() => {
+    onMount(async () => {
+        await initializeTooling();
         listRoms().then(() => {
             loading = false;
         });
+
+        await detectAdBlockEnabled();
+        adBlock = SessionState.adBlockEnabled;
+        adsEnabled = SessionState.adsEnabled;
+
+        if (adsEnabled) {
+            const host = browser ? window.location.hostname : "<SSR_HOST>";
+            if (host in adSlotConfig) {
+                adSlots = adSlotConfig[host as keyof typeof adSlotConfig];
+            }
+
+            (async () => {
+                const aHosts = await findAHosts();
+                if (!aHosts) {
+                    adsEnabled = false;
+                    SessionState.adsEnabled = false;
+                    return;
+                }
+
+                const aHostData = aHosts.find((h) => h.hostname === host);
+                if (aHostData && aHostData.acode) {
+                    const scriptId = `ad-script-${aHostData.acode}`;
+                    if (document.getElementById(scriptId)) return; // Already loaded
+
+                    const script = document.createElement("script");
+                    script.id = scriptId;
+                    script.src = `//monu.delivery/site/${aHostData.acode}`;
+                    script.setAttribute("data-cfasync", "false");
+                    script.defer = true;
+                    document.head.appendChild(script);
+                } else {
+                    adsEnabled = false;
+                    SessionState.adsEnabled = false;
+                }
+            })();
+        }
     });
 
     function filterRoms(romArr: ROM[]) {
@@ -103,17 +157,33 @@
             bind:value={search}
             class="search"
         />
+        {#if adsEnabled && adSlots }
+            <div class = "big-ad">
+                <Ad slotId={adSlots.big} />
+            </div>
+        {/if}
         {#each Object.keys(roms) as console}
             {#if filterRoms(roms[console]).length}
                 <section>
                     <h2>{console.toUpperCase()}</h2>
+                    {#if adsEnabled && adSlots }
+                        <div class = "small-ad" style="margin-bottom: 12px;">
+                            <Ad slotId={adSlots.small} />
+                        </div>
+                    {/if}
                     <ul>
                         {#each filterRoms(roms[console]) as rom}
                             <li>
                                 {#if unsupported.includes(console)}
-                                    <a href={`https://ccportedroms.s3.amazonaws.com/${console}/${rom.filename}`} download>{rom.name} (Download)</a>
+                                    <a
+                                        href={`https://ccportedroms.s3.amazonaws.com/${console}/${rom.filename}`}
+                                        download>{rom.name} (Download)</a
+                                    >
                                 {:else}
-                                    <a href={`/emulator?core=${console}&rom=${rom.filename}`}>{rom.name}</a>
+                                    <a
+                                        href={`/emulator?core=${console}&rom=${rom.filename}`}
+                                        >{rom.name}</a
+                                    >
                                 {/if}
                                 >
                             </li>
@@ -134,9 +204,12 @@
         margin-right: auto;
         box-sizing: border-box;
         min-height: calc(100vh - 110px);
-        background: rgba(255,255,255,0.5);
+        background: rgba(255, 255, 255, 0.5);
         border-radius: 32px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 16px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.1);
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.12),
+            0 2px 16px rgba(0, 0, 0, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(10px) saturate(180%);
         -webkit-backdrop-filter: blur(10px) saturate(180%);
         display: flex;
@@ -153,17 +226,23 @@
         border: none;
         border-radius: 24px;
         box-sizing: border-box;
-        background: rgba(255,255,255,0.7);
+        background: rgba(255, 255, 255, 0.7);
         color: #222;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 16px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.1);
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.12),
+            0 2px 16px rgba(0, 0, 0, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
         outline: none;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: block;
         position: relative;
     }
     .search:focus {
-        background: rgba(255,255,255,0.9);
-        box-shadow: 0 12px 48px rgba(0,0,0,0.15), 0 4px 24px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.15);
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow:
+            0 12px 48px rgba(0, 0, 0, 0.15),
+            0 4px 24px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
         transform: translateY(-2px);
     }
 
@@ -176,7 +255,7 @@
     }
     li {
         margin: 0;
-        border-bottom: 1px solid rgba(0,0,0,0.05);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         padding: 12px 16px;
         font-size: 1.05rem;
         transition: background 0.2s;
@@ -184,7 +263,7 @@
         cursor: pointer;
     }
     li:hover {
-        background: rgba(0,0,0,0.08);
+        background: rgba(0, 0, 0, 0.08);
     }
     li:last-child {
         border-bottom: none;
