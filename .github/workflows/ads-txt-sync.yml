@@ -14,12 +14,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Fetch latest ads.txt
+
+      - name: Fetch Monumetric and Applixir ads.txt
         run: |
+          # Fetch Monumetric ads.txt
           curl -sS -o /tmp/remote_ads.txt "https://monu.delivery/adstxt/e/4/500442-526a-41af-9981-22db9286cd37.txt"
 
-      - name: Remove first comment and add custom timestamp
-        run: |
           # Remove only the first comment line (timestamp) from remote_ads.txt
           awk 'NR==1 && /^#/ {next} {print}' /tmp/remote_ads.txt > /tmp/cleaned_ads.txt
 
@@ -29,6 +29,9 @@ jobs:
             echo "# Ads.txt last updated on: $timestamp by MONUMETRIC/CCPorted"
             cat /tmp/cleaned_ads.txt
           } > /tmp/final_ads.txt
+
+          # Fetch Applixir ads.txt and append below Monumetric lines
+          curl -sS "https://cdn.applixir.com/ads.txt" >> /tmp/final_ads.txt
 
           # Compare the file (excluding the timestamp line) with existing ads.txt
           if [ -f static/ads.txt ]; then

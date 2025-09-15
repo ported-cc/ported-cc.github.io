@@ -57,11 +57,14 @@
         }
         const unmarshalled = unmarshall(response.Item) as Game;
         game = unmarshalled;
+        loading = false;
         adblock = await detectAdBlockEnabled();
         console.log("[R][PLAY][fetchGameData] Adblock detected:", adblock);
     }
     let loading = $state(true);
     let iframe = $state(null as null | HTMLIFrameElement);
+    let application: any = null;
+    let adContinued = $state(false);
     onMount(async () => {
         await initializeTooling();
         await fetchGameData();
@@ -89,6 +92,7 @@
                     clearInterval(interval);
                 }
             }, 1000);
+        } else {
         }
     });
 
@@ -123,7 +127,9 @@
                         await waitForTooling();
                     }
                     if (SessionState.loggedIn && SessionState.user) {
-                        console.log("[R][PLAY][updateIframe] Iframe loaded. User logged in: true");
+                        console.log(
+                            "[R][PLAY][updateIframe] Iframe loaded. User logged in: true",
+                        );
                         try {
                             const tokens = SessionState.user.tokens || {};
                             w.postMessage({
@@ -134,7 +140,9 @@
                             console.error("Error sending tokens:", err);
                         }
                     } else {
-                        console.log("[R][PLAY][updateIframe] Iframe loaded. User not logged in.");
+                        console.log(
+                            "[R][PLAY][updateIframe] Iframe loaded. User not logged in.",
+                        );
                     }
                     iframe.focus();
                 });
@@ -169,7 +177,9 @@
                             };
 
                             if (SessionState.loggedIn && SessionState.user) {
-                                console.log("[R][PLAY][updateIframe][message-GET_TOKENS] User logged in, sending tokens");
+                                console.log(
+                                    "[R][PLAY][updateIframe][message-GET_TOKENS] User logged in, sending tokens",
+                                );
                                 try {
                                     const tokens =
                                         SessionState.user.tokens || {};
@@ -211,7 +221,10 @@
                             }
 
                             // Send response back to the exact source iframe
-                            console.log("[R][PLAY][updateIframe][message-GET_TOKENS] Sending response:", response);
+                            console.log(
+                                "[R][PLAY][updateIframe][message-GET_TOKENS] Sending response:",
+                                response,
+                            );
                             if (!event.source) return;
                             event.source.postMessage(response, {
                                 targetOrigin: event.origin,
@@ -247,13 +260,55 @@
         }
     });
 
+    function play() {
+        if (localStorage.getItem("devMode") == "true") {
+            const options = {
+                apiKey: "193de488-c5ba-461a-8ccf-8309cbc721a2", // Replace with your actual API key
+                injectionElementId: "ad-container", // This is the ID of the div from step 2.
+                adStatusCallbackFn: (
+                    status:
+                        | "allAdsCompleted"
+                        | "click"
+                        | "complete"
+                        | "firstQuartile"
+                        | "loaded"
+                        | "midpoint"
+                        | "paused"
+                        | "started"
+                        | "thirdQuartile"
+                        | "skipped"
+                        | "manuallyEnded"
+                        | "thankYouModalClosed"
+                        | "consentDeclined",
+                ) => {
+                    // This is how you can listen for ad statuses (more in Step 4)
+                    console.log("OUTSIDE Ad status: ", status);
+                    continued = true;
+                },
+                adErrorCallbackFn: (error: any) => {
+                    // This is how you can listen for errors (more in Step 4)
+                    console.log("Error: ", error.getError().data);
+                    continued = true;
+                },
+            };
+
+            (window as any).initializeAndOpenPlayer(options);
+        } else {
+            continued = true;
+        }
+    }
 </script>
 
 <svelte:head>
     <title>
         {game ? `Playing ${game.fName}` : "Loading..."} | CCPorted
     </title>
+    <script
+        type="text/javascript"
+        src="https://cdn.applixir.com/applixir.app.v6.0.1.js"
+    ></script>
 </svelte:head>
+
 {#if isAHost || SessionState.devMode}
     {#if adblock && !continued}
         <div class="container">
@@ -263,7 +318,10 @@
                     CCPorted relies on ads to keep the lights on. Please
                     consider disabling your ad blocker for this site.
                 </p>
-                <p>Only 5% of users have disabled their ad blocker. Be part of the solution!</p>
+                <p>
+                    Only 5% of users have disabled their ad blocker. Be part of
+                    the solution!
+                </p>
                 <button onclick={() => location.reload()}
                     >I've disabled my ad blocker, reload the game</button
                 >
@@ -279,7 +337,7 @@
             </div>
         </div>
     {/if}
-    {#if game}
+    {#if game && adContinued}
         <iframe
             src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}/index.html`}
             frameborder="0"
@@ -292,16 +350,51 @@
             <h2>Error</h2>
             <p>{error}</p>
         </div>
-    {:else}
+    {:else if loading}
         <div class="container">
             <h2>Loading...</h2>
         </div>
+    {:else}
+        <div class="play">
+            {#if game}
+                <h2>{game.fName}</h2>
+                <p>{game.description}</p>
+                <img
+                    alt={`Cover art for ${game.fName}`}
+                    src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}${game.thumbPath}`}
+                />
+            {/if}
+            <button onclick={play}>Play Game</button>
+        </div>
+        <div id="ad-container"></div>
     {/if}
 {:else}
     <Locked />
 {/if}
 
 <style>
+    .play {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        flex-direction: column;
+    }
+    .play img {
+        max-width: 400px;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .play h2 {
+        margin: 0;
+    }
+    .play p {
+        max-width: 600px;
+        text-align: center;
+        margin: 10px 0 20px 0;
+        color: #555;
+    }
     .container {
         position: fixed;
         top: 0;
