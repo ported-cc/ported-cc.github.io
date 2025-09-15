@@ -296,9 +296,9 @@
                         "manuallyEnded",
                         "thankYouModalClosed",
                     ]
-                    // if (finishReasons.includes(status)) {
-                    //     adContinued = true;
-                    // }
+                    if (finishReasons.includes(status)) {
+                        adContinued = true;
+                    }
                     if (status === "consentDeclined") {
                         alert("Please consent to ads to play the game.");
                         location.reload();
