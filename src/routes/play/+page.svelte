@@ -276,7 +276,7 @@
                         | "click" // finish reason
                         | "complete" // finish reason
                         | "firstQuartile"
-                        | "loaded" 
+                        | "loaded"
                         | "midpoint"
                         | "paused"
                         | "started"
@@ -284,7 +284,7 @@
                         | "skipped" // finish reason
                         | "manuallyEnded" // finish reason
                         | "thankYouModalClosed" // finish reason
-                        | "consentDeclined"
+                        | "consentDeclined",
                 ) => {
                     // This is how you can listen for ad statuses (more in Step 4)
                     console.log("OUTSIDE Ad status: ", status);
@@ -295,7 +295,7 @@
                         "skipped",
                         "manuallyEnded",
                         "thankYouModalClosed",
-                    ]
+                    ];
                     if (finishReasons.includes(status)) {
                         adContinued = true;
                     }
@@ -328,68 +328,64 @@
     ></script>
 </svelte:head>
 
-{#if isAHost || SessionState.devMode}
-    {#if adblock && !continued}
-        <div class="container">
-            <div class="adblock-warning">
-                <h2>Ad Blocker Detected</h2>
+{#if adblock && !continued && !isAHost}
+    <div class="container">
+        <div class="adblock-warning">
+            <h2>Ad Blocker Detected</h2>
+            <p>
+                CCPorted relies on ads to keep the lights on. Please consider
+                disabling your ad blocker for this site.
+            </p>
+            <p>
+                Only 5% of users have disabled their ad blocker. Be part of the
+                solution!
+            </p>
+            <button onclick={() => location.reload()}
+                >I've disabled my ad blocker, reload the game</button
+            >
+            {#if withoutSupportingTimer > 0}
                 <p>
-                    CCPorted relies on ads to keep the lights on. Please
-                    consider disabling your ad blocker for this site.
+                    You can continue in {withoutSupportingTimer} seconds...
                 </p>
-                <p>
-                    Only 5% of users have disabled their ad blocker. Be part of
-                    the solution!
-                </p>
-                <button onclick={() => location.reload()}
-                    >I've disabled my ad blocker, reload the game</button
+            {:else}
+                <button onclick={() => (continued = true)}
+                    >Continue without supporting us</button
                 >
-                {#if withoutSupportingTimer > 0}
-                    <p>
-                        You can continue in {withoutSupportingTimer} seconds...
-                    </p>
-                {:else}
-                    <button onclick={() => (continued = true)}
-                        >Continue without supporting us</button
-                    >
-                {/if}
-            </div>
+            {/if}
         </div>
+    </div>
+{/if}
+{#if game}
+    {#if !adContinued}
+        <div class="play">
+            {#if game}
+                <h2>{game.fName}</h2>
+                <p>{game.description}</p>
+                <img
+                    alt={`Cover art for ${game.fName}`}
+                    src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
+                />
+            {/if}
+            <button onclick={play}>Play Game</button>
+        </div>
+        <div id="ad-container"></div>
     {/if}
-    {#if game}
-        {#if !adContinued}
-            <div class="play">
-                {#if game}
-                    <h2>{game.fName}</h2>
-                    <p>{game.description}</p>
-                    <img
-                        alt={`Cover art for ${game.fName}`}
-                        src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
-                    />
-                {/if}
-                <button onclick={play}>Play Game</button>
-            </div>
-            <div id="ad-container"></div>
-        {/if}
-        <iframe
-            src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
-            frameborder="0"
-            allowfullscreen
-            bind:this={iframe}
-            title={`Playing ${game.fName}`}
-        ></iframe>
-    {:else if error}
-        <div class="container">
-            <h2>Error</h2>
-            <p>{error}</p>
-        </div>
-    {:else if loading}
-        <div class="container">
-            <h2>Loading...</h2>
-        </div>
-    {/if}
-{:else}
-    <Locked />
+    <iframe
+        src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
+        frameborder="0"
+        allowfullscreen
+        bind:this={iframe}
+        title={`Playing ${game.fName}`}
+    ></iframe>
+{:else if error}
+    <div class="container">
+        <h2>Error</h2>
+        <p>{error}</p>
+    </div>
+{:else if loading}
+    <div class="container">
+        <h2>Loading...</h2>
+    </div>
 {/if}
 
 <style>

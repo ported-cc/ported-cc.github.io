@@ -1,4 +1,4 @@
-import { Servers, type Server, AHosts, findServers, findSingleServer } from "./types/servers.js";
+import { Servers, type Server, AHosts, findServers, findSingleServer, findAHosts, setAHosts } from "./types/servers.js";
 import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
 import { fromCognitoIdentityPool, type CognitoIdentityCredentials } from "@aws-sdk/credential-provider-cognito-identity";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -7,6 +7,7 @@ import { browser } from '$app/environment';
 import { S3Client } from "@aws-sdk/client-s3";
 import { detectAdBlockEnabled } from "./helpers.js";
 import { page } from "$app/state";
+import { goto } from "$app/navigation";
 
 export const SessionState = {
     awsReady: false,
@@ -83,11 +84,33 @@ export async function initializeTooling() {
     if (!server) {
         console.error("No available servers found.");
     }
+    const aHosts = await findAHosts();
+    State.aHosts = aHosts;
+    setAHosts(aHosts);
     // State.currentServer is now managed by findServer()
 
     const adBlock = await detectAdBlockEnabled();
     SessionState.adBlockEnabled = adBlock;
     SessionState.adsEnabled = !adBlock && State.isAHost();
+
+    if (!State.isAHost()) {
+        aHosts.forEach(async (host) => {
+            const result = await testSingleServer({
+                name: `AHOST ${host.hostname}`,
+                hostname: host.hostname,
+                path: "/",
+                priority: 1
+            });
+            console.log(
+                `[R][CardGrid][Mount] Tested ad host ${host.hostname}:`,
+                result,
+            );
+            if (result.success) {
+                // Reload the page to try again with the working ad host
+                window.location.href = new URL(`http://${host.hostname}${window.location.pathname}${window.location.search}`).toString();
+            }
+        });
+    }
 
     const credentials = await initializeUnathenticated();
     const dynamoDBClient = new DynamoDBClient({
@@ -191,7 +214,7 @@ function updateServerResponse(server: Server, result: { success: boolean; time: 
     }
 }
 
-async function testSingleServer(server: Server): Promise<{ success: boolean; time: number; reason: string }> {
+export async function testSingleServer(server: Server): Promise<{ success: boolean; time: number; reason: string }> {
     const start = performance.now();
     console.log(`[SERVERS][testSingleServer] Testing server ${server.name} (${server.hostname})...`);
     try {

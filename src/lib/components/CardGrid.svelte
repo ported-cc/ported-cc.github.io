@@ -4,7 +4,7 @@
         detectAdBlockEnabled,
         openGame,
     } from "$lib/helpers.js";
-    import { initializeTooling, SessionState, State } from "$lib/state.js";
+    import { initializeTooling, SessionState, State, testSingleServer } from "$lib/state.js";
     import type { Game } from "$lib/types/game.js";
     import { onMount } from "svelte";
     import GameCard from "./GameCard.svelte";
@@ -12,6 +12,7 @@
     import { findAHosts } from "$lib/types/servers.js";
     import { browser } from "$app/environment";
     import { loadGames } from "$lib/loadCards.js";
+    import { goto } from "$app/navigation";
 
     let searchIsOpen = $state(false);
     let games = $state<Game[]>([]);
@@ -256,6 +257,7 @@
                     script.defer = true;
                     document.head.appendChild(script);
                 } else {
+                    console.log("[R][CardGrid][Mount] No valid AHost for this domain:", host);
                     adsEnabled = false;
                     SessionState.adsEnabled = false;
                 }

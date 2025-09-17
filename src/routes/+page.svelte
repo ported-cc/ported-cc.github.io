@@ -29,15 +29,12 @@
     />
 </svelte:head>
 
-{#if isAHost || devMode}
-    <div class="container">
-        <div class="background"></div>
-        <Navigation />
-        <CardGrid />
-    </div>
-{:else}
-    <Locked />
-{/if}
+<div class="container">
+    <div class="background"></div>
+    <Navigation />
+    <CardGrid />
+</div>
+
 <footer>
     <h3>
         <b

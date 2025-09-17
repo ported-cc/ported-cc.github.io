@@ -13,13 +13,16 @@ export interface Server {
 
 
 
-export const AHosts: AHost[] = [{
+export let AHosts: AHost[] = [{
     hostname: "ccported.github.io",
     acode: "e/4/500442-526a-41af-9981-22db9286cd37.js"
 }, {
     hostname: "ccported.click",
     acode: "5/2/0ff0b7-11f3-4bd8-b154-cfeed8597df1.js"
 }];
+export function setAHosts(ahosts: AHost[]) {
+    AHosts = ahosts;
+}
 
 export const Servers: Server[] = [{
     name: "Charlie",
