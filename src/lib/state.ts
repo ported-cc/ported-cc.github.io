@@ -1,4 +1,4 @@
-import { Servers, type Server, AHosts, findServers } from "./types/servers.js";
+import { Servers, type Server, AHosts, findServers, findSingleServer } from "./types/servers.js";
 import { CognitoIdentityClient } from "@aws-sdk/client-cognito-identity";
 import { fromCognitoIdentityPool, type CognitoIdentityCredentials } from "@aws-sdk/credential-provider-cognito-identity";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -70,6 +70,7 @@ export const State = createState({
 
 export let toolingInitialized = false;
 export let initializingTooling = false;
+let serverSearchInProgress = false;
 export async function initializeTooling() {
     if (toolingInitialized) return;
     if (initializingTooling) {
@@ -114,6 +115,17 @@ export function waitForTooling(): Promise<void> {
     });
 }
 
+function waitForServerSearch(): Promise<void> {
+    return new Promise((resolve) => {
+        const checkInterval = setInterval(() => {
+            if (!serverSearchInProgress) {
+                clearInterval(checkInterval);
+                resolve();
+            }
+        }, 50);
+    });
+}
+
 
 export function loadState(state: StateType): StateType {
     if (SessionState.ssr) return state;
@@ -137,7 +149,7 @@ async function* testServersWithYield(servers: Server[]): AsyncGenerator<Server, 
     const testPromises = serversToTest.map(server => {
         return testSingleServer(server)
     });
-    
+
     for (let i = 0; i < testPromises.length; i++) {
         testPromises[i].then((result) => {
             if (result.success) {
@@ -169,7 +181,7 @@ async function* testServersWithYield(servers: Server[]): AsyncGenerator<Server, 
     }
 }
 
-function updateServerResponse(server: Server, result: { success: boolean; time: number; reason:string }) {
+function updateServerResponse(server: Server, result: { success: boolean; time: number; reason: string }) {
     const response = { server, ...result };
     const index = SessionState.serverResponses.findIndex(r => r.server.hostname === server.hostname);
     if (index !== -1) {
@@ -183,7 +195,7 @@ async function testSingleServer(server: Server): Promise<{ success: boolean; tim
     const start = performance.now();
     console.log(`[SERVERS][testSingleServer] Testing server ${server.name} (${server.hostname})...`);
     try {
-        const response = await fetch(`https://${server.hostname}/blocked_res.txt`);
+        const response = await fetch(`http://${server.hostname}/blocked_res.txt`);
         let end = start;
 
         if (response) end = performance.now();
@@ -227,7 +239,7 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
     return new Promise((resolve) => {
         const iframe = document.createElement('iframe');
         iframe.style.display = 'none';
-        iframe.src = `https://${server.hostname}/test_availability.html`;
+        iframe.src = `http://${server.hostname}/test_availability.html`;
         document.body.appendChild(iframe);
 
         let resolved = false;
@@ -249,7 +261,9 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
 
         const messageHandler = (event: MessageEvent) => {
             // Verify the message is from the expected origin
-            if (event.origin !== `https://${server.hostname}`) return;
+            if (event.origin !== `http://${server.hostname}` &&
+                event.origin !== `https://${server.hostname}`
+            ) return;
 
             const data = event.data;
             const end = performance.now();
@@ -259,7 +273,7 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
                     resolveOnce({ success: false, time: end - startTime, reason: "Embed window not found" });
                     return;
                 }
-                iframe.contentWindow.postMessage("CHECK_AVAILABILITY", `https://${server.hostname}`);
+                iframe.contentWindow.postMessage("CHECK_AVAILABILITY", `http://${server.hostname}`);
                 return;
             }
 
@@ -278,79 +292,70 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
         }, 3000);
     });
 }
-
 export async function findServer(): Promise<Server | null> {
-    // Implements the logic from server_flow.md
-    const optimisticServer = (State.currentServer && State.currentServer.hostname) ? State.currentServer : null;
+    // Prevent multiple concurrent server searches
+    if (serverSearchInProgress) {
+        console.log("[STATE][findServer] Server search already in progress, waiting...");
+        await waitForServerSearch();
+        return State.currentServer;
+    }
 
-    const runBackgroundCheck = () => {
-        // Run in background
-        setTimeout(async () => {
-            console.log("[STATE][findServer] Running background server check.");
-            const servers = await findServers();
-            State.servers = servers;
-            const sortedServers = servers.sort((a, b) => a.priority - b.priority);
-            
-            const currentServer = (State.currentServer && State.currentServer.hostname) ? State.currentServer : null;
+    serverSearchInProgress = true;
 
-            if (currentServer && currentServer.priority === 1) {
-                console.log(`[STATE][findServer] Background check: Validating priority 1 server: ${currentServer.name}.`);
-                const res = await testSingleServer(currentServer);
-                if (res.success) {
-                    console.log(`[STATE][findServer] Background check: Priority 1 server ${currentServer.name} is still valid.`);
-                } else {
-                    console.log(`[STATE][findServer] Background check: Priority 1 server ${currentServer.name} failed. Finding replacement.`);
-                    const best = await findFirstAvailableServer(sortedServers);
-                    if (best) {
-                        console.log(`[STATE][findServer] Background check: Found new server ${best.name} with priority ${best.priority}.`);
-                        State.currentServer = best;
-                    } else {
-                        console.log("[STATE][findServer] Background check: Could not find any replacement server.");
-                    }
-                }
-                return;
+    try {
+        // Implements the logic from server_flow.md
+        const optimisticServer = (State.currentServer && State.currentServer.hostname) ? State.currentServer : null;
+
+        // Helper to test a server and return if it's available
+        const testAndReturnIfAvailable = async (server: Server | null): Promise<Server | null> => {
+            if (!server) return null;
+            const res = await testSingleServer(server);
+            if (res.success) {
+                console.log(`[STATE][findServer] Server ${server.name} is available.`);
+                return server;
             }
+            console.log(`[STATE][findServer] Server ${server.name} failed test: ${res.reason}`);
+            return null;
+        };
 
-            if (currentServer) {
-                console.log(`[STATE][findServer] Background check: Current server ${currentServer.name} has priority ${currentServer.priority}. Checking all servers to find the best available.`);
-            } else {
-                console.log("[STATE][findServer] Background check: No current server. Checking all servers to find the best available.");
+        // Try optimistic server first
+        if (optimisticServer) {
+            console.log(`[STATE][findServer] Using optimistic server: ${optimisticServer.name} with priority ${optimisticServer.priority}`);
+            const available = await testAndReturnIfAvailable(optimisticServer);
+            if (available) {
+                State.currentServer = available;
+                return available;
             }
-            
-            const available = await getAllAvailableServers(sortedServers);
-            const availableSorted = available.sort((a, b) => a.priority - b.priority);
-            if (available.length > 0) {
-                const bestAvailable = availableSorted[0];
-                if (!currentServer || bestAvailable.priority < currentServer.priority) {
-                    console.log(`[STATE][findServer] Background check: Found better server ${bestAvailable.name} with priority ${bestAvailable.priority}. Updating.`);
-                    State.currentServer = bestAvailable;
-                } else {
-                    console.log(`[STATE][findServer] Background check: Current server ${currentServer.name} is still the best available.`);
-                    console.log(availableSorted);
-                }
-            } else {
-                console.log("[STATE][findServer] Background check: No available servers found.");
-            }
-        }, 0);
-    };
-
-    if (optimisticServer) {
-        console.log(`[STATE][findServer] Using optimistic server: ${optimisticServer.name} with priority ${optimisticServer.priority}`);
-        runBackgroundCheck();
-        return optimisticServer;
-    } else {
-        console.log("[STATE][findServer] No optimistic server found. Performing initial search...");
-        const initialServer = await findServerWithSmartWait();
-
-        if (initialServer) {
-            console.log(`[STATE][findServer] Initial server found: ${initialServer.name} with priority ${initialServer.priority}.`);
-            State.currentServer = initialServer;
-            runBackgroundCheck(); // Also run a full check to ensure we get the absolute best for next time.
-            return initialServer;
+            console.log(`[STATE][findServer] Optimistic server failed, trying findSingleServer...`);
         }
-        
-        console.error("[STATE][findServer] No servers available during initial search.");
+
+        // Try findSingleServer next
+        const singleServer = await findSingleServer();
+        const singleAvailable = await testAndReturnIfAvailable(singleServer);
+        if (singleAvailable) {
+            State.currentServer = singleAvailable;
+            return singleAvailable;
+        }
+        console.log(`[STATE][findServer] findSingleServer failed, pulling full server list...`);
+
+        // Fallback: pull all servers and pick the first available
+        const servers = await findServers();
+        if (!servers || servers.length === 0) {
+            console.error("[STATE][findServer] No servers available.");
+            return null;
+        }
+        State.servers = servers;
+        const sortedServers = servers.sort((a, b) => a.priority - b.priority);
+        const best = await findFirstAvailableServer(sortedServers);
+        if (best) {
+            State.currentServer = best;
+            return best;
+        }
+
+        console.error("[STATE][findServer] No available servers found after full list check.");
         return null;
+    } finally {
+        serverSearchInProgress = false;
     }
 }
 
@@ -358,6 +363,10 @@ export async function findServer(): Promise<Server | null> {
 export async function findBestServer(): Promise<Server | null> {
     console.log("[STATE][findBestServer] Searching for servers");
     const servers = await findServers();
+    if (!servers) {
+        console.log("[STATE][findBestServer] No servers found");
+        return null;
+    }
     State.servers = servers;
     console.log(`[STATE][findBestServer] Discovered ${servers.length} servers.`);
 
@@ -367,7 +376,8 @@ export async function findBestServer(): Promise<Server | null> {
     }
 
     // Sort by priority (lower number = higher priority)
-    const sortedServers = servers.sort((a, b) => a.priority - b.priority);
+    interface SortedServer extends Server { }
+    const sortedServers: SortedServer[] = servers.sort((a: Server, b: Server) => a.priority - b.priority);
 
     console.log("[STATE][findBestServer] Testing servers concurrently...");
 
@@ -402,6 +412,10 @@ export async function findBestServer(): Promise<Server | null> {
 export async function findServerWithSmartWait(): Promise<Server | null> {
     console.log("[STATE][findServer] Searching for servers");
     const servers = await findServers();
+    if (!servers) {
+        console.log("[STATE][findServer] No servers found");
+        return null;
+    }
     State.servers = servers;
     console.log(`[STATE][findServer] Discovered ${servers.length} servers.`);
 
@@ -411,7 +425,8 @@ export async function findServerWithSmartWait(): Promise<Server | null> {
     }
 
     // Sort by priority
-    const sortedServers = servers.sort((a, b) => a.priority - b.priority);
+    interface SortedServer extends Server { }
+    const sortedServers: SortedServer[] = servers.sort((a: Server, b: Server) => a.priority - b.priority);
     const highestPriority = sortedServers[0]?.priority || 1;
 
     console.log("[STATE][findServer] Testing servers concurrently...");
@@ -455,6 +470,10 @@ export async function findServerWithSmartWait(): Promise<Server | null> {
 export async function findServerFastest(): Promise<Server | null> {
     console.log("[STATE][findServer] Searching for servers");
     const servers = await findServers();
+    if (!servers) {
+        console.log("[STATE][findServer] No servers found");
+        return null;
+    }
     State.servers = servers;
     console.log(`[STATE][findServer] Discovered ${servers.length} servers.`);
 

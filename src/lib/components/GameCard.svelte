@@ -16,7 +16,7 @@
         updatedTimestamp,
     } = game;
 
-    const normalThumbPath = `https://${State.currentServer.hostname}/${State.currentServer.path}${gameID}${thumbPath}`;
+    const normalThumbPath = `http://${State.currentServer.hostname}${State.currentServer.path}${gameID}${thumbPath}`;
     let starred = $state(State.pinnedGames.includes(gameID) ? true : false);
 
     let cardElement: HTMLDivElement;

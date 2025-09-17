@@ -364,7 +364,7 @@
                     <p>{game.description}</p>
                     <img
                         alt={`Cover art for ${game.fName}`}
-                        src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}${game.thumbPath}`}
+                        src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
                     />
                 {/if}
                 <button onclick={play}>Play Game</button>
@@ -372,7 +372,7 @@
             <div id="ad-container"></div>
         {/if}
         <iframe
-            src={`https://${State.currentServer.hostname}/${State.currentServer.path}${game.gameID}/index.html`}
+            src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
             frameborder="0"
             allowfullscreen
             bind:this={iframe}

@@ -314,7 +314,7 @@
                     onclick={() => openGame(result.game)}
                 >
                     <img
-                        src={`https://${State.currentServer.hostname}/${State.currentServer.path}${result.game.gameID}${result.game.thumbPath}`}
+                        src={`http://${State.currentServer.hostname}${State.currentServer.path}${result.game.gameID}${result.game.thumbPath}`}
                         alt={result.game.fName}
                     />
                     <div style="flex: 1;">

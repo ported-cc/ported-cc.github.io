@@ -55,29 +55,61 @@ export const Servers: Server[] = [{
 }]
 
 
-export const findServers = async (): Promise<Server[]> => {
-    console.log("[SERVERS][findServers] Finding servers from servers.txt");
-    const url = typeof window !== "undefined" ? `${window.location.origin}/servers.txt` : "https://ccgstatic.com/servers.txt";
-    console.log(`[SERVERS][findServers] Fetching servers from ${url}`);
-    const response = await fetch(url);
-    console.log(`[SERVERS][findServers] Response status: ${response.status}`);
-    if (!response.ok) {
-        return Servers;
-    }
-    const text = await response.text();
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const servers: Server[] = lines.map((line, index) => {
-        const parts = line.split(',').map(p => p.trim());
+export const findSingleServer = async (): Promise<Server | null> => {
+    try {
+        const response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/server/games");
+        if (!response.ok) {
+            return null;
+        }
+        const text = await response.text();
+        // Example response: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
+        // "<TYPE> HOST NAME PATh"
+        const parts = text.trim().split(/\s+/);
+        if (parts.length < 4) {
+            return null;
+        }
         return {
-            hostname: parts[0],
-            name: parts[1],
-            path: parts[2] || '',
-            priority: index + 1
+            name: parts[2],
+            hostname: parts[1],
+            path: parts[3],
+            priority: 1
         };
-    });
-    console.log(`Found ${servers.length} servers from servers.txt`);
-    return servers;
-}
+    } catch {
+        return null;
+    }
+};
+
+export const findServers = async (): Promise<Server[] | null> => {
+    try {
+        const response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/servers.txt");
+        if (!response.ok) {
+            return null;
+        }
+        const text = await response.text();
+        // Example response: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
+        // "<TYPE> HOST NAME PATh"
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length === 0) {
+            return null;
+        }
+        const servers: Server[] = lines.map((line, i) => {
+            if (line.startsWith("#")) {
+                return null;
+            }
+            const parts = line.split(/\s+/);
+            return {
+                name: parts[2],
+                hostname: parts[1],
+                path: parts[3],
+                priority: i + 1
+            };
+        }).filter(s => s !== null) as Server[];
+        return servers;
+    } catch {
+        return null;
+    }
+};
+
 
 export const findAHosts = async (): Promise<AHost[]> => {
     const url = typeof window !== "undefined" ? `${window.location.origin}/ahosts.txt` : "https://ccgstatic.com/ahosts.txt";
