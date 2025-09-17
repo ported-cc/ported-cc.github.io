@@ -1,6 +1,7 @@
 <script lang="ts">
     import { decamelize, formatNumber, openGame } from "$lib/helpers.js";
     import { State } from "$lib/state.js";
+    import { browser } from "$app/environment";
 
     import type { Game } from "../types/game.ts";
 
@@ -16,7 +17,9 @@
         updatedTimestamp,
     } = game;
 
-    const normalThumbPath = `http://${State.currentServer.hostname}${State.currentServer.path}${gameID}${thumbPath}`;
+    const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(State.currentServer.hostname);
+    const protocol = isIpAddress ? "http" : (browser && window.isSecureContext ? "https" : "http");
+    const normalThumbPath = `${protocol}://${State.currentServer.hostname}${State.currentServer.path}${gameID}${thumbPath}`;
     let starred = $state(State.pinnedGames.includes(gameID) ? true : false);
 
     let cardElement: HTMLDivElement;

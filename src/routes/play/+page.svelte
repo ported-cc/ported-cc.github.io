@@ -105,7 +105,10 @@
         console.log("[R][PLAY][updateIframe] Updating to", server);
         if (server.name == State.currentServer.name) return;
         if (!iframe || !game || !browser) return;
-        iframe.src = `https://${server.address.split(",")[0]}/${server.path}${game.gameID}/index.html`;
+        const serverHost = server.address.split(",")[0];
+        const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(serverHost);
+        const protocol = isIpAddress ? 'http' : (window.isSecureContext ? 'https' : 'http');
+        iframe.src = `${protocol}://${serverHost}/${server.path}${game.gameID}/index.html`;
         let query = page.url.searchParams;
         query.set("server", server.name);
         var url = new URL(page.url);
@@ -363,7 +366,7 @@
                 <p>{game.description}</p>
                 <img
                     alt={`Cover art for ${game.fName}`}
-                    src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
+                    src={`${/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(State.currentServer.hostname) ? 'http' : (browser && window.isSecureContext ? 'https' : 'http')}://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
                 />
             {/if}
             <button onclick={play}>Play Game</button>
@@ -371,7 +374,7 @@
         <div id="ad-container"></div>
     {/if}
     <iframe
-        src={`http://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
+        src={`${/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(State.currentServer.hostname) ? 'http' : (browser && window.isSecureContext ? 'https' : 'http')}://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
         frameborder="0"
         allowfullscreen
         bind:this={iframe}

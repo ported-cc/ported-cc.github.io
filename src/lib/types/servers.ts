@@ -60,23 +60,32 @@ export const Servers: Server[] = [{
 
 export const findSingleServer = async (): Promise<Server | null> => {
     try {
-        const response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/server/games");
-        if (!response.ok) {
-            return null;
+        const isSecureContext = typeof window !== "undefined" && window.isSecureContext;
+        
+        if (isSecureContext) {
+            // For HTTPS sites, just return the first server from the local list
+            const servers = await findServers();
+            return servers && servers.length > 0 ? servers[0] : null;
+        } else {
+            // For HTTP sites, use the proxy endpoint
+            const response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/server/games");
+            if (!response.ok) {
+                return null;
+            }
+            const text = await response.text();
+            // Example response: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
+            // "<TYPE> HOST NAME PATh"
+            const parts = text.trim().split(/\s+/);
+            if (parts.length < 4) {
+                return null;
+            }
+            return {
+                name: parts[2],
+                hostname: parts[1],
+                path: parts[3],
+                priority: 1
+            };
         }
-        const text = await response.text();
-        // Example response: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
-        // "<TYPE> HOST NAME PATh"
-        const parts = text.trim().split(/\s+/);
-        if (parts.length < 4) {
-            return null;
-        }
-        return {
-            name: parts[2],
-            hostname: parts[1],
-            path: parts[3],
-            priority: 1
-        };
     } catch {
         return null;
     }
@@ -84,30 +93,62 @@ export const findSingleServer = async (): Promise<Server | null> => {
 
 export const findServers = async (): Promise<Server[] | null> => {
     try {
-        const response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/servers.txt");
+        const isSecureContext = typeof window !== "undefined" && window.isSecureContext;
+        let response;
+        
+        if (isSecureContext) {
+            // Use local servers.txt for HTTPS sites
+            response = await fetch("/servers.txt");
+        } else {
+            // Use proxy for HTTP sites 
+            response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/servers.txt");
+        }
+        
         if (!response.ok) {
             return null;
         }
         const text = await response.text();
-        // Example response: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
-        // "<TYPE> HOST NAME PATh"
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        if (lines.length === 0) {
-            return null;
-        }
-        const servers: Server[] = lines.map((line, i) => {
-            if (line.startsWith("#")) {
+        
+        if (isSecureContext) {
+            // Parse local servers.txt format: "hostname,name,path"
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length === 0) {
                 return null;
             }
-            const parts = line.split(/\s+/);
-            return {
-                name: parts[2],
-                hostname: parts[1],
-                path: parts[3],
-                priority: i + 1
-            };
-        }).filter(s => s !== null) as Server[];
-        return servers;
+            const servers: Server[] = lines.map((line, i) => {
+                if (line.startsWith("#")) {
+                    return null;
+                }
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length < 3) return null;
+                return {
+                    name: parts[1],
+                    hostname: parts[0],
+                    path: parts[2],
+                    priority: i + 1
+                };
+            }).filter(s => s !== null) as Server[];
+            return servers;
+        } else {
+            // Parse proxy format: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length === 0) {
+                return null;
+            }
+            const servers: Server[] = lines.map((line, i) => {
+                if (line.startsWith("#")) {
+                    return null;
+                }
+                const parts = line.split(/\s+/);
+                return {
+                    name: parts[2],
+                    hostname: parts[1],
+                    path: parts[3],
+                    priority: i + 1
+                };
+            }).filter(s => s !== null) as Server[];
+            return servers;
+        }
     } catch {
         return null;
     }
