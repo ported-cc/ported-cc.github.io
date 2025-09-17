@@ -9,6 +9,7 @@ export interface Server {
     hostname: string;
     path: string;
     priority: number;
+    protocol: "http" | "https";
 }
 
 
@@ -28,33 +29,39 @@ export const Servers: Server[] = [{
     name: "Charlie",
     hostname: "ccgstatic.com",
     path: "games/",
-    priority: 1
+    priority: 1,
+    protocol: "https"
 }, {
     name: "Bell",
     hostname: "ccportedgames.s3.us-west-2.amazonaws.com",
     path: "",
-    priority: 6
+    priority: 6,
+    protocol: "https"
 },
 {
     name: "Olympic",
     hostname: "d1yh00vn2fvto7.cloudfront.net",
     path: "games/",
-    priority: 3
+    priority: 3,
+    protocol: "https"
 }, {
     name: "Shafiyoon",
     hostname: "d1cp3xh9gda0oe.cloudfront.net",
     path: "games/",
-    priority: 4
+    priority: 4,
+    protocol: "https"
 }, {
     name: "Racecar",
     hostname: "d1vqjbyryjpk97.cloudfront.net",
     path: "games/",
-    priority: 5
+    priority: 5,
+    protocol: "https"
 }, {
     name: "Ellay",
     hostname: "ccported.click",
     path: "games/",
-    priority: 2
+    priority: 2,
+    protocol: "https"
 }]
 
 
@@ -83,7 +90,8 @@ export const findSingleServer = async (): Promise<Server | null> => {
                 name: parts[2],
                 hostname: parts[1],
                 path: parts[3],
-                priority: 1
+                priority: 1,
+                protocol: "http"
             };
         }
     } catch {
@@ -125,7 +133,8 @@ export const findServers = async (): Promise<Server[] | null> => {
                     name: parts[1],
                     hostname: parts[0],
                     path: parts[2],
-                    priority: i + 1
+                    priority: i + 1,
+                    protocol: "https"
                 };
             }).filter(s => s !== null) as Server[];
             return servers;
@@ -144,7 +153,8 @@ export const findServers = async (): Promise<Server[] | null> => {
                     name: parts[2],
                     hostname: parts[1],
                     path: parts[3],
-                    priority: i + 1
+                    priority: i + 1,
+                    protocol: "http"
                 };
             }).filter(s => s !== null) as Server[];
             return servers;

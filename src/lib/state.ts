@@ -99,7 +99,8 @@ export async function initializeTooling() {
                 name: `AHOST ${host.hostname}`,
                 hostname: host.hostname,
                 path: "/",
-                priority: 1
+                priority: 1,
+                protocol: browser && window.isSecureContext ? "https" : "http" 
             });
             console.log(
                 `[R][CardGrid][Mount] Tested ad host ${host.hostname}:`,
@@ -109,7 +110,7 @@ export async function initializeTooling() {
                 // Reload the page to try again with the working ad host
                 const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host.hostname);
                 const protocol = isIpAddress ? 'http' : (window.isSecureContext ? 'https' : 'http');
-                window.location.href = new URL(`${protocol}://${host.hostname}${window.location.pathname}${window.location.search}`).toString();
+                // window.location.href = new URL(`${protocol}://${host.hostname}${window.location.pathname}${window.location.search}`).toString();
             }
         });
     }
@@ -220,11 +221,8 @@ export async function testSingleServer(server: Server): Promise<{ success: boole
     const start = performance.now();
     console.log(`[SERVERS][testSingleServer] Testing server ${server.name} (${server.hostname})...`);
     try {
-        // Determine protocol: use HTTP for IP addresses, respect secure context for domains
-        const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(server.hostname);
-        const isSecureContext = browser && window.isSecureContext;
-        const protocol = isIpAddress ? "http" : (isSecureContext ? "https" : "http");
-        const response = await fetch(`${protocol}://${server.hostname}/blocked_res.txt`);
+        // Use the protocol specified by the server
+        const response = await fetch(`${server.protocol}://${server.hostname}/blocked_res.txt`);
         let end = start;
 
         if (response) end = performance.now();
@@ -266,14 +264,10 @@ export async function testSingleServer(server: Server): Promise<{ success: boole
 
 async function testIframeEmbedding(server: Server, startTime: number): Promise<{ success: boolean; time: number; reason: string }> {
     return new Promise((resolve) => {
-        // Determine protocol: use HTTP for IP addresses, respect secure context for domains
-        const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(server.hostname);
-        const isSecureContext = window.isSecureContext;
-        const protocol = isIpAddress ? "http" : (isSecureContext ? "https" : "http");
-        
+        // Use the protocol specified by the server
         const iframe = document.createElement('iframe');
         iframe.style.display = 'none';
-        iframe.src = `${protocol}://${server.hostname}/test_availability.html`;
+        iframe.src = `${server.protocol}://${server.hostname}/test_availability.html`;
         document.body.appendChild(iframe);
 
         let resolved = false;
@@ -292,7 +286,7 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
                 resolve(result);
             }
         };
-
+        
         const messageHandler = (event: MessageEvent) => {
             // Verify the message is from the expected origin
             if (event.origin !== `http://${server.hostname}` &&
@@ -307,7 +301,7 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
                     resolveOnce({ success: false, time: end - startTime, reason: "Embed window not found" });
                     return;
                 }
-                iframe.contentWindow.postMessage("CHECK_AVAILABILITY", `${protocol}://${server.hostname}`);
+                iframe.contentWindow.postMessage("CHECK_AVAILABILITY", `${server.protocol}://${server.hostname}`);
                 return;
             }
 

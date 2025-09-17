@@ -106,6 +106,8 @@
         if (server.name == State.currentServer.name) return;
         if (!iframe || !game || !browser) return;
         const serverHost = server.address.split(",")[0];
+        // Note: This updateIframe function seems to use a different server format than our Server interface
+        // For now, keeping the IP address detection logic here until we clarify the server parameter structure
         const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(serverHost);
         const protocol = isIpAddress ? 'http' : (window.isSecureContext ? 'https' : 'http');
         iframe.src = `${protocol}://${serverHost}/${server.path}${game.gameID}/index.html`;
@@ -366,7 +368,7 @@
                 <p>{game.description}</p>
                 <img
                     alt={`Cover art for ${game.fName}`}
-                    src={`${/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(State.currentServer.hostname) ? 'http' : (browser && window.isSecureContext ? 'https' : 'http')}://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
+                    src={`${State.currentServer.protocol}://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}${game.thumbPath}`}
                 />
             {/if}
             <button onclick={play}>Play Game</button>
@@ -374,7 +376,7 @@
         <div id="ad-container"></div>
     {/if}
     <iframe
-        src={`${/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(State.currentServer.hostname) ? 'http' : (browser && window.isSecureContext ? 'https' : 'http')}://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
+        src={`${State.currentServer.protocol}://${State.currentServer.hostname}${State.currentServer.path}${game.gameID}/index.html`}
         frameborder="0"
         allowfullscreen
         bind:this={iframe}

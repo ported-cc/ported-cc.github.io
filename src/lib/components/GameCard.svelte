@@ -17,9 +17,7 @@
         updatedTimestamp,
     } = game;
 
-    const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(State.currentServer.hostname);
-    const protocol = isIpAddress ? "http" : (browser && window.isSecureContext ? "https" : "http");
-    const normalThumbPath = `${protocol}://${State.currentServer.hostname}${State.currentServer.path}${gameID}${thumbPath}`;
+    const normalThumbPath = `${State.currentServer.protocol}://${State.currentServer.hostname}${State.currentServer.path}${gameID}${thumbPath}`;
     let starred = $state(State.pinnedGames.includes(gameID) ? true : false);
 
     let cardElement: HTMLDivElement;
