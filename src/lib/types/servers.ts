@@ -28,38 +28,38 @@ export function setAHosts(ahosts: AHost[]) {
 export const Servers: Server[] = [{
     name: "Charlie",
     hostname: "ccgstatic.com",
-    path: "games/",
+    path: "/games/",
     priority: 1,
     protocol: "https"
 }, {
     name: "Bell",
     hostname: "ccportedgames.s3.us-west-2.amazonaws.com",
-    path: "",
+    path: "/",
     priority: 6,
     protocol: "https"
 },
 {
     name: "Olympic",
     hostname: "d1yh00vn2fvto7.cloudfront.net",
-    path: "games/",
+    path: "/games/",
     priority: 3,
     protocol: "https"
 }, {
     name: "Shafiyoon",
     hostname: "d1cp3xh9gda0oe.cloudfront.net",
-    path: "games/",
+    path: "/games/",
     priority: 4,
     protocol: "https"
 }, {
     name: "Racecar",
     hostname: "d1vqjbyryjpk97.cloudfront.net",
-    path: "games/",
+    path: "/games/",
     priority: 5,
     protocol: "https"
 }, {
     name: "Ellay",
     hostname: "ccported.click",
-    path: "games/",
+    path: "/games/",
     priority: 2,
     protocol: "https"
 }]
