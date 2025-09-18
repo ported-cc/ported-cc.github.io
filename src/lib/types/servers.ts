@@ -77,7 +77,9 @@ export const findSingleServer = async (): Promise<Server | null> => {
             return servers && servers.length > 0 ? servers[0] : null;
         } else {
             // For HTTP sites, use the proxy endpoint
-            const response = await fetch("https://z67jfipy20.execute-api.us-west-2.amazonaws.com/prod/servers/game");
+            const response = await fetch("https://z67jfipy20.execute-api.us-west-2.amazonaws.com/prod/servers/game", {
+                mode: "cors"
+            });
             if (!response.ok) {
                 return null;
             }
@@ -112,7 +114,9 @@ export const findServers = async (): Promise<Server[] | null> => {
         // Fetch both in parallel
         const fetches = [
             fetch(localUrl).catch(() => null),
-            fetch(proxyUrl).catch(() => null)
+            fetch(proxyUrl, {
+                mode: "cors"
+            }).catch(() => null)
         ];
 
         const [localRes, proxyRes] = await Promise.all(fetches);

@@ -332,7 +332,8 @@
     ></script>
 </svelte:head>
 
-{#if adblock && !continued && !isAHost}
+
+    {#if adblock && !continued && !isAHost && adContinued} 
     <div class="container">
         <div class="adblock-warning">
             <h2>Ad Blocker Detected</h2>
