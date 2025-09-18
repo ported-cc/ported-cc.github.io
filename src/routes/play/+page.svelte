@@ -162,7 +162,7 @@
                         );
                         if (
                             ![
-                                "http://localhost:8080",
+                                "http://localhost:5173",
                                 ...allowedOrigins,
                             ].includes(event.origin)
                         ) {

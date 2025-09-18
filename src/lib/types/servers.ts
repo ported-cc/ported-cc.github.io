@@ -77,7 +77,7 @@ export const findSingleServer = async (): Promise<Server | null> => {
             return servers && servers.length > 0 ? servers[0] : null;
         } else {
             // For HTTP sites, use the proxy endpoint
-            const response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/server/games");
+            const response = await fetch("https://z67jfipy20.execute-api.us-west-2.amazonaws.com/prod/servers/game");
             if (!response.ok) {
                 return null;
             }
@@ -107,7 +107,7 @@ export const findServers = async (): Promise<Server[] | null> => {
 
         // Define fetch URLs
         const localUrl = "/servers.txt";
-        const proxyUrl = "http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/servers.txt";
+        const proxyUrl = "https://z67jfipy20.execute-api.us-west-2.amazonaws.com/prod/servers";
 
         // Fetch both in parallel
         const fetches = [
