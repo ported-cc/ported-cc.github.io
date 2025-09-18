@@ -94,6 +94,20 @@
             return [`(Unknown security status)`, false];
         }
     }
+
+    function hasMixedContentIssue(server: Server): boolean {
+        if (browser && window) {
+            const secureContext = window.isSecureContext;
+            const secureServer = server.protocol === 'https';
+            return secureContext && !secureServer;
+        }
+        return false;
+    }
+
+    function openServerInNewTab(server: Server) {
+        const url = `${server.protocol}://${server.hostname}/test_availability.html`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
 </script>
 
 <!-- Floating Button -->
@@ -153,7 +167,9 @@
                             <div class="server-name">{server.name}</div>
                             <div class="server-hostname">{insecureMessage(server)[0]}</div>
                             <div class="server-status">
-                                {#if iframeResults[server.hostname] === 'loading'}
+                                {#if hasMixedContentIssue(server)}
+                                    <span class="status mixed-content">⚠️ Test manually</span>
+                                {:else if iframeResults[server.hostname] === 'loading'}
                                     <span class="status loading">Testing...</span>
                                 {:else if iframeResults[server.hostname] === 'success'}
                                     <span class="status success">✓ Working</span>
@@ -163,19 +179,33 @@
                             </div>
                         </div>
                         
-                        <div class="iframe-container">
-                            <iframe
-                                src="{server.protocol}://{server.hostname}/test_availability.html"
-                                title="Test {server.name}"
-                                onload={() => handleIframeLoad(server)}
-                                onerror={() => handleIframeError(server)}
-                            ></iframe>
+                        <div class="iframe-container" class:mixed-content={hasMixedContentIssue(server)}>
+                            {#if hasMixedContentIssue(server)}
+                                <div class="mixed-content-warning">
+                                    <div class="warning-icon">⚠️</div>
+                                    <div class="warning-text">Mixed content blocked</div>
+                                    <button 
+                                        class="test-new-tab-btn" 
+                                        onclick={() => openServerInNewTab(server)}
+                                        title="Test server in new tab"
+                                    >
+                                        Test in New Tab
+                                    </button>
+                                </div>
+                            {:else}
+                                <iframe
+                                    src="{server.protocol}://{server.hostname}/test_availability.html"
+                                    title="Test {server.name}"
+                                    onload={() => handleIframeLoad(server)}
+                                    onerror={() => handleIframeError(server)}
+                                ></iframe>
+                            {/if}
                         </div>
                         
                         <button 
                             class="select-btn" 
                             onclick={() => selectServer(server)}
-                            disabled={iframeResults[server.hostname] !== 'success'}
+                            disabled={!hasMixedContentIssue(server) && iframeResults[server.hostname] !== 'success'}
                         >
                             {server.hostname === State.currentServer.hostname ? 'Current' : 'Select'}
                         </button>
@@ -268,6 +298,7 @@
         border-radius: 12px;
         max-width: 90vw;
         max-height: 90vh;
+        width: 50%;
         overflow-y: auto;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         display: flex;
@@ -389,6 +420,11 @@
         color: #721c24;
     }
 
+    .status.mixed-content {
+        background: #fff3cd;
+        color: #856404;
+    }
+
     .iframe-container {
         height: 100px;
         border: 1px solid #ddd;
@@ -398,11 +434,54 @@
         position: relative;
     }
 
+    .iframe-container.mixed-content {
+        height: 150px;
+    }
+
     .iframe-container iframe {
         width: 100%;
         height: 100%;
         border: none;
         background: white;
+    }
+
+    .mixed-content-warning {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 16px;
+        background: #fff8dc;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+    }
+
+    .warning-icon {
+        font-size: 24px;
+    }
+
+    .warning-text {
+        font-size: 0.85rem;
+        color: #856404;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .test-new-tab-btn {
+        padding: 6px 12px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    .test-new-tab-btn:hover {
+        background: #0056b3;
     }
 
     .select-btn {
@@ -457,6 +536,24 @@
         
         .iframe-container {
             height: 80px;
+        }
+        
+        .iframe-container.mixed-content {
+            height: 110px;
+        }
+        
+        .mixed-content-warning {
+            padding: 12px;
+            gap: 6px;
+        }
+        
+        .warning-icon {
+            font-size: 20px;
+        }
+        
+        .test-new-tab-btn {
+            padding: 4px 8px;
+            font-size: 0.75rem;
         }
     }
 
