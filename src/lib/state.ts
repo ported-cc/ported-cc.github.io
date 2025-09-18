@@ -80,6 +80,34 @@ export async function initializeTooling() {
         return;
     }
     initializingTooling = true;
+    
+    // Handle SetServer query parameter
+    if (browser && window) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const setServerParam = urlParams.get('SetServer');
+        if (setServerParam) {
+            console.log("[initializeTooling] Processing SetServer parameter:", setServerParam);
+            // Find the server that matches the hostname
+            const availableServers = await findServers();
+            if (availableServers) {
+                const targetServer = availableServers.find(server => server.hostname === setServerParam);
+                if (targetServer) {
+                    State.currentServer = targetServer;
+                    console.log("[initializeTooling] Set server to:", targetServer.name);
+                } else {
+                    console.warn("[initializeTooling] Server not found for hostname:", setServerParam);
+                }
+            } else {
+                console.warn("[initializeTooling] No servers available to match:", setServerParam);
+            }
+            // Remove the parameter from URL for clean URLs
+            urlParams.delete('SetServer');
+            const newUrl = new URL(window.location.href);
+            newUrl.search = urlParams.toString();
+            window.history.replaceState(null, '', newUrl.toString());
+        }
+    }
+    
     const server = await findServer();
     if (!server) {
         console.error("No available servers found.");
@@ -100,7 +128,7 @@ export async function initializeTooling() {
                 hostname: host.hostname,
                 path: "/",
                 priority: 1,
-                protocol: browser && window.isSecureContext ? "https" : "http" 
+                protocol: browser && window.isSecureContext ? "https" : "http"
             });
             console.log(
                 `[R][CardGrid][Mount] Tested ad host ${host.hostname}:`,
@@ -286,7 +314,7 @@ async function testIframeEmbedding(server: Server, startTime: number): Promise<{
                 resolve(result);
             }
         };
-        
+
         const messageHandler = (event: MessageEvent) => {
             // Verify the message is from the expected origin
             if (event.origin !== `http://${server.hostname}` &&
@@ -330,6 +358,13 @@ export async function findServer(): Promise<Server | null> {
 
     serverSearchInProgress = true;
 
+    // Poll all servers first thing, get the list going
+    const servers = await findServers();
+    if (!servers || servers.length === 0) {
+        console.error("[STATE][findServer] No servers available.");
+        return null;
+    }
+    State.servers = servers;
     try {
         // Implements the logic from server_flow.md
         const optimisticServer = (State.currentServer && State.currentServer.hostname) ? State.currentServer : null;
@@ -357,22 +392,6 @@ export async function findServer(): Promise<Server | null> {
             console.log(`[STATE][findServer] Optimistic server failed, trying findSingleServer...`);
         }
 
-        // Try findSingleServer next
-        const singleServer = await findSingleServer();
-        const singleAvailable = await testAndReturnIfAvailable(singleServer);
-        if (singleAvailable) {
-            State.currentServer = singleAvailable;
-            return singleAvailable;
-        }
-        console.log(`[STATE][findServer] findSingleServer failed, pulling full server list...`);
-
-        // Fallback: pull all servers and pick the first available
-        const servers = await findServers();
-        if (!servers || servers.length === 0) {
-            console.error("[STATE][findServer] No servers available.");
-            return null;
-        }
-        State.servers = servers;
         const sortedServers = servers.sort((a, b) => a.priority - b.priority);
         const best = await findFirstAvailableServer(sortedServers);
         if (best) {

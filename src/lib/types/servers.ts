@@ -1,3 +1,5 @@
+import { SessionState } from "$lib/state.js";
+
 export interface AHost {
     hostname: string;
     acode: string;
@@ -102,31 +104,27 @@ export const findSingleServer = async (): Promise<Server | null> => {
 export const findServers = async (): Promise<Server[] | null> => {
     try {
         const isSecureContext = typeof window !== "undefined" && window.isSecureContext;
-        let response;
-        
-        if (isSecureContext) {
-            // Use local servers.txt for HTTPS sites
-            response = await fetch("/servers.txt");
-        } else {
-            // Use proxy for HTTP sites 
-            response = await fetch("http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/servers.txt");
-        }
-        
-        if (!response.ok) {
-            return null;
-        }
-        const text = await response.text();
-        
-        if (isSecureContext) {
-            // Parse local servers.txt format: "hostname,name,path"
+
+        // Define fetch URLs
+        const localUrl = "/servers.txt";
+        const proxyUrl = "http://ccproxy-lb-n-1192779656.us-west-2.elb.amazonaws.com/servers.txt";
+
+        // Fetch both in parallel
+        const fetches = [
+            fetch(localUrl).catch(() => null),
+            fetch(proxyUrl).catch(() => null)
+        ];
+
+        const [localRes, proxyRes] = await Promise.all(fetches);
+
+        let servers: Server[] = [];
+
+        // Parse local servers.txt (HTTPS)
+        if (localRes && localRes.ok) {
+            const text = await localRes.text();
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            if (lines.length === 0) {
-                return null;
-            }
-            const servers: Server[] = lines.map((line, i) => {
-                if (line.startsWith("#")) {
-                    return null;
-                }
+            const localServers: Server[] = lines.map((line, i) => {
+                if (line.startsWith("#")) return null;
                 const parts = line.split(',').map(p => p.trim());
                 if (parts.length < 3) return null;
                 return {
@@ -137,18 +135,18 @@ export const findServers = async (): Promise<Server[] | null> => {
                     protocol: "https"
                 };
             }).filter(s => s !== null) as Server[];
-            return servers;
-        } else {
-            // Parse proxy format: "<GAMES> 44.243.124.75 proxy-1758086342367 /games/"
+            servers = servers.concat(localServers);
+        }
+
+        // Parse proxy servers.txt (HTTP)
+        if (proxyRes && proxyRes.ok) {
+            const text = await proxyRes.text();
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            if (lines.length === 0) {
-                return null;
-            }
-            const servers: Server[] = lines.map((line, i) => {
-                if (line.startsWith("#")) {
-                    return null;
-                }
+            const proxyServers: Server[] = lines.map((line, i) => {
+                if (line.startsWith("#")) return null;
+                if (!line.startsWith("<GAMES>")) return null;
                 const parts = line.split(/\s+/);
+                if (parts.length < 4) return null;
                 return {
                     name: parts[2],
                     hostname: parts[1],
@@ -157,8 +155,13 @@ export const findServers = async (): Promise<Server[] | null> => {
                     protocol: "http"
                 };
             }).filter(s => s !== null) as Server[];
-            return servers;
+            servers = servers.concat(proxyServers);
         }
+
+        if (servers.length === 0) {
+            return null;
+        }
+        return servers;
     } catch {
         return null;
     }

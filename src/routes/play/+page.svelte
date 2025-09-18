@@ -12,7 +12,6 @@
     import { page } from "$app/state";
     import { detectAdBlockEnabled, trackClick } from "$lib/helpers.js";
     import { browser } from "$app/environment";
-    import Locked from "$lib/components/Locked.svelte";
 
     let game: Game | null = $state(null);
     let adblock = $state(false);
@@ -392,6 +391,7 @@
         <h2>Loading...</h2>
     </div>
 {/if}
+
 
 <style>
     .play {

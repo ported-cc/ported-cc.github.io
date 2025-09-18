@@ -1,6 +1,7 @@
 <script lang="ts">
     import { browser } from "$app/environment";
     import { onMount } from "svelte";
+    import ServerSwitcher from "$lib/components/ServerSwitcher.svelte";
 
     let { children } = $props();
 
@@ -70,3 +71,8 @@
 </svelte:head>
 
 {@render children()}
+
+<!-- Server Switcher - only show in browser -->
+{#if browser}
+    <ServerSwitcher />
+{/if}
